@@ -1,0 +1,10 @@
+{"level_number":9,"grid_width":8,"grid_height":9,"move_count":20,"grid":[
+  "y","y","b","g","y","rand","cbBL","cbBR",
+  "y","b","g","b","b","t","cbTL","cbTR",
+  "b","b","r","b","y","y","cbBL","cbBR",
+  "r","r","b","r","y","y","cbTL","cbTR",
+  "g","y","y","g","y","y","g","b",
+  "cbBL","cbBR","g","r","rand","rand","rand","rand",
+  "cbTL","cbTR","vro","g","b","g","rand","rand",
+  "cbBL","cbBR","r","r","r","b","rand","rand",
+  "cbTL","cbTR","r","r","r","r","g","rand"]}

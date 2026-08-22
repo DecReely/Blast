@@ -1,0 +1,9 @@
+{"level_number":3,"grid_width":10,"grid_height":8,"move_count":20,"grid":[
+  "cbBL","cbBR","b","cbBL","cbBR","cbBL","cbBR","y","cbBL","cbBR",
+  "cbTL","cbTR","r","cbTL","cbTR","cbTL","cbTR","g","cbTL","cbTR",
+  "r","r","r","b","b","y","vro","y","t","r",
+  "rand","rand","rand","rand","rand","g","rand","b","b","g",
+  "rand","rand","rand","rand","rand","rand","rand","rand","rand","rand",
+  "rand","rand","rand","rand","rand","rand","rand","rand","rand","rand",
+  "rand","rand","rand","rand","rand","rand","rand","rand","rand","rand",
+  "rand","rand","rand","rand","rand","rand","rand","rand","rand","rand"]}

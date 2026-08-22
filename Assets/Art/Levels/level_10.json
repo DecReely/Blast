@@ -1,0 +1,9 @@
+{"level_number":10,"grid_width":10,"grid_height":8,"move_count":10,"grid":[
+  "hro","vro","vro","vro","vro","vro","vro","vro","vro","vro",
+  "s","s","s","b","b","b","b","s","s","s",
+  "s","b","b","s","b","b","s","b","b","s",
+  "s","b","b","s","b","b","s","b","s","s",
+  "s","b","b","s","b","b","s","b","b","b",
+  "s","b","b","s","b","b","s","b","b","s",
+  "s","s","s","b","b","b","b","s","s","b",
+  "vro","hro","b","b","b","b","b","b","b","b"]}

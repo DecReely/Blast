@@ -1,0 +1,8 @@
+{"level_number":8,"grid_width":9,"grid_height":7,"move_count":18,"grid":[
+  "s","s","s","s","s","s","s","s","s",
+  "s","g","t","s","v","s","t","g","s",
+  "s","r","y","s","v","s","y","b","s",
+  "s","g","t","s","v","s","t","g","s",
+  "rand","y","b","s","v","s","r","y","rand",
+  "rand","b","g","b","v","r","g","r","rand",
+  "rand","rand","rand","rand","rand","rand","rand","rand","rand"]}

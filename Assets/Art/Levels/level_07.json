@@ -1,0 +1,9 @@
+{"level_number":7,"grid_width":9,"grid_height":8,"move_count":24,"grid":[
+  "cbBL","cbBR","s","s","t","s","s","cbBL","cbBR",
+  "cbTL","cbTR","s","rand","rand","rand","s","cbTL","cbTR",
+  "s","s","b","rand","rand","rand","g","s","s",
+  "s","rand","b","rand","rand","rand","g","rand","s",
+  "rand","rand","b","rand","hro","rand","g","rand","rand",
+  "rand","rand","b","rand","hro","rand","g","rand","rand",
+  "y","y","y","y","v","r","r","r","r",
+  "y","y","v","y","v","r","v","r","r"]}
