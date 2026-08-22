@@ -1,3 +1,6 @@
+using Blast.Gameplay;
+using Blast.Items;
+using Blast.Levels;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
@@ -29,20 +32,41 @@ namespace Blast.EditorTools
         /// <summary>Board items render above this, so the frame sits well behind them.</summary>
         private const int BoardFrameSortingOrder = -100;
 
-        /// <summary>Entry point used by both the menu item and the -executeMethod batch run.</summary>
+        /// <summary>
+        /// Routine setup. Safe to re-run at any time: it only touches import settings, generated
+        /// assets and project settings, and deliberately leaves the scenes alone so hand-made scene
+        /// edits are never clobbered. Use <see cref="RebuildScenes"/> explicitly to regenerate those.
+        /// </summary>
         [MenuItem("Dream Games/Setup/Run Project Setup")]
         public static void RunAll()
         {
             ArtImportSettingsTool.Apply();
+            GameAssetsBootstrapTool.CreateAll();
             ConfigurePlayerSettings();
-            BuildMainScene();
-            BuildLevelScene();
             ConfigureBuildSettings();
 
             AssetDatabase.SaveAssets();
             AssetDatabase.Refresh();
 
             Debug.Log("Project setup complete.");
+        }
+
+        /// <summary>
+        /// Regenerates both scenes from scratch. Destructive: anything added to a scene by hand is
+        /// lost, which is why it is kept out of <see cref="RunAll"/>.
+        /// </summary>
+        [MenuItem("Dream Games/Setup/Rebuild Scenes (destructive)")]
+        public static void RebuildScenes()
+        {
+            // Prefabs and data assets must exist first, because LevelScene is wired to reference them.
+            GameAssetsBootstrapTool.CreateAll();
+
+            BuildMainScene();
+            BuildLevelScene();
+            ConfigureBuildSettings();
+
+            AssetDatabase.SaveAssets();
+            Debug.Log("Scenes rebuilt.");
         }
 
         [MenuItem("Dream Games/Setup/Configure Player Settings")]
@@ -76,7 +100,7 @@ namespace Blast.EditorTools
             Debug.Log($"Build settings: 0={MainScenePath}, 1={LevelScenePath}");
         }
 
-        [MenuItem("Dream Games/Setup/Rebuild MainScene")]
+        [MenuItem("Dream Games/Setup/Rebuild MainScene (destructive)")]
         public static void BuildMainScene()
         {
             var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
@@ -90,16 +114,20 @@ namespace Blast.EditorTools
             SaveScene(scene, MainScenePath);
         }
 
-        [MenuItem("Dream Games/Setup/Rebuild LevelScene")]
+        [MenuItem("Dream Games/Setup/Rebuild LevelScene (destructive)")]
         public static void BuildLevelScene()
         {
             var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
 
-            CreateCamera(new Color(0.16f, 0.09f, 0.24f, 1f));
-            CreateBoardRoot();
+            var camera = CreateCamera(new Color(0.16f, 0.09f, 0.24f, 1f));
+            var boardCamera = camera.gameObject.AddComponent<BoardCamera>();
+            Wire(boardCamera, ("_camera", camera));
+
+            var (board, boardFrame) = CreateBoardRoot();
 
             CreateCanvas("UI");
             CreateEventSystem();
+            CreateLevelSession(board, boardFrame);
 
             SaveScene(scene, LevelScenePath);
         }
@@ -114,7 +142,8 @@ namespace Blast.EditorTools
             var camera = go.GetComponent<Camera>();
             camera.orthographic = true;
 
-            // Placeholder framing. The level camera is fitted to the board at runtime.
+            // Starting value only. In LevelScene, BoardCamera recomputes this from the aspect ratio
+            // so a cell is always the same size on screen regardless of the level's dimensions.
             camera.orthographicSize = 6f;
             camera.clearFlags = CameraClearFlags.SolidColor;
             camera.backgroundColor = background;
@@ -130,7 +159,7 @@ namespace Blast.EditorTools
         /// every system converts between cells and world space through it rather than doing its own
         /// cell-size arithmetic.
         /// </summary>
-        private static void CreateBoardRoot()
+        private static (Board board, BoardFrame frame) CreateBoardRoot()
         {
             var boardGo = new GameObject("Board", typeof(Grid));
 
@@ -143,15 +172,70 @@ namespace Blast.EditorTools
             var frameGo = new GameObject("Frame", typeof(SpriteRenderer));
             frameGo.transform.SetParent(boardGo.transform, false);
 
-            var frame = frameGo.GetComponent<SpriteRenderer>();
-            frame.sprite = AssetDatabase.LoadAssetAtPath<Sprite>(BoardFramePath);
-            frame.drawMode = SpriteDrawMode.Sliced;
-            frame.size = new Vector3(6f, 6f, 0f);
-            frame.sortingOrder = BoardFrameSortingOrder;
+            var frameRenderer = frameGo.GetComponent<SpriteRenderer>();
+            frameRenderer.sprite = AssetDatabase.LoadAssetAtPath<Sprite>(BoardFramePath);
+
+            // Sliced so the rounded frame art stretches to any grid size without distorting.
+            frameRenderer.drawMode = SpriteDrawMode.Sliced;
+            frameRenderer.size = new Vector2(6f, 6f);
+            frameRenderer.sortingOrder = BoardFrameSortingOrder;
+
+            var boardFrame = frameGo.AddComponent<BoardFrame>();
+            Wire(boardFrame, ("_spriteRenderer", frameRenderer));
 
             // Item instances are parented here so the board hierarchy stays readable at runtime.
             var itemsGo = new GameObject("Items");
             itemsGo.transform.SetParent(boardGo.transform, false);
+
+            var board = boardGo.AddComponent<Board>();
+            Wire(board, ("_itemsRoot", itemsGo.transform));
+
+            return (board, boardFrame);
+        }
+
+        /// <summary>
+        /// The one object that knows about all the others. Kept separate from the board so the board
+        /// itself has no opinion about which level is loaded or where levels come from.
+        /// </summary>
+        private static void CreateLevelSession(Board board, BoardFrame boardFrame)
+        {
+            var go = new GameObject("LevelSession");
+            var controller = go.AddComponent<LevelSessionController>();
+
+            Wire(controller,
+                ("_levelDatabase", AssetDatabase.LoadAssetAtPath<LevelDatabase>(GameAssetsBootstrapTool.LevelDatabasePath)),
+                ("_itemCatalog", AssetDatabase.LoadAssetAtPath<ItemCatalog>(GameAssetsBootstrapTool.ItemCatalogPath)),
+                ("_board", board),
+                ("_boardFrame", boardFrame));
+        }
+
+        /// <summary>
+        /// Assigns private serialized fields through <see cref="SerializedObject"/>, which is the
+        /// supported way to set them from editor code without widening their access for runtime.
+        /// </summary>
+        private static void Wire(Object target, params (string property, Object value)[] references)
+        {
+            var serialized = new SerializedObject(target);
+
+            foreach (var (property, value) in references)
+            {
+                var field = serialized.FindProperty(property);
+                if (field == null)
+                {
+                    Debug.LogError($"[ProjectBootstrap] {target.GetType().Name} has no serialized field '{property}'.");
+                    continue;
+                }
+
+                if (value == null)
+                {
+                    Debug.LogError($"[ProjectBootstrap] Nothing to assign to {target.GetType().Name}.{property}.");
+                    continue;
+                }
+
+                field.objectReferenceValue = value;
+            }
+
+            serialized.ApplyModifiedPropertiesWithoutUndo();
         }
 
         private static Canvas CreateCanvas(string name)
