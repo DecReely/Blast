@@ -269,7 +269,11 @@ namespace Blast.EditorTools
         {
             var root = new GameObject(name);
             root.AddComponent<SortingGroup>();
+
             spriteRenderer = root.AddComponent<SpriteRenderer>();
+
+            // Clipped to the board, so refilled cubes are hidden until they cross the top edge.
+            spriteRenderer.maskInteraction = SpriteMaskInteraction.VisibleInsideMask;
             return root;
         }
 
@@ -280,6 +284,7 @@ namespace Blast.EditorTools
 
             var renderer = child.AddComponent<SpriteRenderer>();
             renderer.sprite = LoadSprite(spritePath);
+            renderer.maskInteraction = SpriteMaskInteraction.VisibleInsideMask;
 
             // Ordering within the sorting group, not against the rest of the board.
             renderer.sortingOrder = order;

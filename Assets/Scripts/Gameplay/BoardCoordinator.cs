@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using Blast.Effects;
+using Blast.Motion;
 using UnityEngine;
 
 namespace Blast.Gameplay
@@ -19,26 +20,34 @@ namespace Blast.Gameplay
         private readonly HintController _hintController;
         private readonly MoveCounter _moveCounter;
         private readonly ParticleEffectPool _effectPool;
+        private readonly GravitySystem _gravitySystem;
+        private readonly FallAnimator _fallAnimator;
         private readonly List<Vector2Int> _group = new();
+        private readonly List<FallRequest> _fallRequests = new();
+
+        private int _resolvingGroupSize;
 
         public BoardCoordinator(
             Board board,
             GroupFinder groupFinder,
             HintController hintController,
             MoveCounter moveCounter,
-            ParticleEffectPool effectPool)
+            ParticleEffectPool effectPool,
+            GravitySystem gravitySystem,
+            FallAnimator fallAnimator)
         {
             _board = board;
             _groupFinder = groupFinder;
             _hintController = hintController;
             _moveCounter = moveCounter;
             _effectPool = effectPool;
+            _gravitySystem = gravitySystem;
+            _fallAnimator = fallAnimator;
         }
 
         /// <summary>
-        /// True while a move is being resolved. Currently a blast completes within the call, but the
-        /// gate exists because falling, explosions and combos will each extend a move over several
-        /// frames.
+        /// True from the moment a tap is accepted until the board has finished falling and refilling.
+        /// Input is gated on this so a second tap can never interleave with a settle in progress.
         /// </summary>
         public bool IsResolving { get; private set; }
 
@@ -80,13 +89,44 @@ namespace Blast.Gameplay
             }
 
             IsResolving = true;
+            _resolvingGroupSize = groupSize;
 
             _moveCounter.Spend();
             ClearGroup();
+            Settle();
+        }
+
+        /// <summary>
+        /// Collapses the columns, tops them up, and hands the resulting movement to the animator. The
+        /// turn only ends once everything has landed.
+        /// </summary>
+        private void Settle()
+        {
+            _fallRequests.Clear();
+            _gravitySystem.Resolve(_board, _fallRequests);
+
+            if (_fallAnimator == null)
+            {
+                // No animator available (unit tests, tooling): apply the result instantly.
+                foreach (var request in _fallRequests)
+                {
+                    _board.SnapToCell(request.Item);
+                }
+
+                OnSettled();
+                return;
+            }
+
+            _fallAnimator.Play(_fallRequests, OnSettled);
+        }
+
+        private void OnSettled()
+        {
+            // Hints depend on the settled layout, so they can only be correct once falling is done.
             _hintController.Refresh(_board);
 
             IsResolving = false;
-            BlastResolved?.Invoke(groupSize);
+            BlastResolved?.Invoke(_resolvingGroupSize);
         }
 
         private void ClearGroup()

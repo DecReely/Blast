@@ -2,6 +2,7 @@ using Blast.Effects;
 using Blast.Gameplay;
 using Blast.Items;
 using Blast.Levels;
+using Blast.Motion;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
@@ -128,13 +129,14 @@ namespace Blast.EditorTools
             var boardInput = camera.gameObject.AddComponent<BoardInput>();
             Wire(boardInput, ("_camera", camera));
 
-            var (board, boardFrame) = CreateBoardRoot();
+            var (board, boardFrame, boardMask) = CreateBoardRoot();
 
             var effectPool = new GameObject("Effects").AddComponent<ParticleEffectPool>();
+            var fallAnimator = new GameObject("FallAnimator").AddComponent<FallAnimator>();
 
             CreateCanvas("UI");
             CreateEventSystem();
-            CreateLevelSession(board, boardFrame, boardInput, effectPool);
+            CreateLevelSession(board, boardFrame, boardMask, boardInput, effectPool, fallAnimator);
 
             SaveScene(scene, LevelScenePath);
         }
@@ -166,7 +168,7 @@ namespace Blast.EditorTools
         /// every system converts between cells and world space through it rather than doing its own
         /// cell-size arithmetic.
         /// </summary>
-        private static (Board board, BoardFrame frame) CreateBoardRoot()
+        private static (Board board, BoardFrame frame, BoardMask mask) CreateBoardRoot()
         {
             var boardGo = new GameObject("Board", typeof(Grid));
 
@@ -197,7 +199,14 @@ namespace Blast.EditorTools
             var board = boardGo.AddComponent<Board>();
             Wire(board, ("_itemsRoot", itemsGo.transform));
 
-            return (board, boardFrame);
+            // Clips items to the playfield so refilled cubes are not seen above the board.
+            // BoardMask supplies its own square sprite; see that class for why it cannot be rounded.
+            var maskGo = new GameObject("Mask", typeof(SpriteMask));
+            maskGo.transform.SetParent(boardGo.transform, false);
+
+            var boardMask = maskGo.AddComponent<BoardMask>();
+
+            return (board, boardFrame, boardMask);
         }
 
         /// <summary>
@@ -207,8 +216,10 @@ namespace Blast.EditorTools
         private static void CreateLevelSession(
             Board board,
             BoardFrame boardFrame,
+            BoardMask boardMask,
             BoardInput boardInput,
-            ParticleEffectPool effectPool)
+            ParticleEffectPool effectPool,
+            FallAnimator fallAnimator)
         {
             var go = new GameObject("LevelSession");
             var controller = go.AddComponent<LevelSessionController>();
@@ -218,8 +229,10 @@ namespace Blast.EditorTools
                 ("_itemCatalog", AssetDatabase.LoadAssetAtPath<ItemCatalog>(GameAssetsBootstrapTool.ItemCatalogPath)),
                 ("_board", board),
                 ("_boardFrame", boardFrame),
+                ("_boardMask", boardMask),
                 ("_boardInput", boardInput),
-                ("_effectPool", effectPool));
+                ("_effectPool", effectPool),
+                ("_fallAnimator", fallAnimator));
         }
 
         /// <summary>

@@ -1,5 +1,6 @@
 using System.IO;
 using Blast.Gameplay;
+using Blast.Motion;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
@@ -24,6 +25,9 @@ namespace Blast.EditorTools
         private const int CaptureHeight = 960;
 
         private const int LevelCount = 10;
+
+        /// <summary>Fixed time step used to drive animation outside play mode, where there is no Update.</summary>
+        internal const float FrameStep = 1f / 60f;
 
         [MenuItem("Dream Games/Debug/Capture Level Previews")]
         public static void CaptureAll()
@@ -79,16 +83,21 @@ namespace Blast.EditorTools
 
                 capture(Path.Combine(outputFolder, "blast_0_before.png"));
 
+                var animator = Object.FindFirstObjectByType<FallAnimator>();
                 var movesBefore = session.Moves.Remaining;
-                coordinator.HandleWorldTap(board.CellToWorld(tappedCell));
-                capture(Path.Combine(outputFolder, "blast_1_after.png"));
 
-                Debug.Log($"[LevelPreview] Tapped {tappedCell}: moves {movesBefore} -> {session.Moves.Remaining}.");
-
-                // Tapping the resulting hole must not be a move.
-                var movesBeforeEmptyTap = session.Moves.Remaining;
                 coordinator.HandleWorldTap(board.CellToWorld(tappedCell));
-                Debug.Log($"[LevelPreview] Tapped the empty hole: moves {movesBeforeEmptyTap} -> {session.Moves.Remaining} (expected unchanged).");
+
+                // A few frames in, so the capture shows items genuinely in mid-air.
+                Advance(animator, 5);
+                capture(Path.Combine(outputFolder, "blast_1_midfall.png"));
+
+                var frames = RunUntilSettled(animator, coordinator);
+                capture(Path.Combine(outputFolder, "blast_2_settled.png"));
+
+                Debug.Log($"[LevelPreview] Tapped {tappedCell}: moves {movesBefore} -> {session.Moves.Remaining}, " +
+                          $"settled after {frames} frames.");
+                Debug.Log("[LevelPreview] " + BoardIntegrity.Describe(board));
             });
 
             Debug.Log($"[LevelPreview] Blast simulation written to {outputFolder}");
@@ -135,6 +144,71 @@ namespace Blast.EditorTools
                     BoardBuilder.ClearItems(board);
                 }
             }
+        }
+
+        /// <summary>
+        /// Opens LevelScene and hands the caller its gameplay objects, with no rendering set up.
+        /// Used by logic-only checks. Spawned items are cleared again on the way out.
+        /// </summary>
+        internal static void RunHeadless(System.Action<LevelSessionController, Board, FallAnimator> body)
+        {
+            EditorSceneManager.OpenScene(ProjectBootstrapTool.LevelScenePath, OpenSceneMode.Single);
+
+            var session = Object.FindFirstObjectByType<LevelSessionController>();
+            var board = Object.FindFirstObjectByType<Board>();
+            var animator = Object.FindFirstObjectByType<FallAnimator>();
+
+            if (session == null || board == null || animator == null)
+            {
+                Debug.LogError("[LevelPreview] LevelScene is missing a gameplay object.");
+                return;
+            }
+
+            try
+            {
+                body(session, board, animator);
+            }
+            finally
+            {
+                BoardBuilder.ClearItems(board);
+            }
+        }
+
+        /// <summary>Steps the fall animation on by a fixed number of frames.</summary>
+        internal static void Advance(FallAnimator animator, int frames)
+        {
+            if (animator == null)
+            {
+                return;
+            }
+
+            for (var i = 0; i < frames; i++)
+            {
+                animator.Tick(FrameStep);
+            }
+        }
+
+        /// <summary>
+        /// Runs a settle to completion at a fixed time step. Capped so a stuck animation reports an
+        /// error instead of hanging the editor.
+        /// </summary>
+        internal static int RunUntilSettled(FallAnimator animator, BoardCoordinator coordinator)
+        {
+            const int maxFrames = 900;
+            var frames = 0;
+
+            while (coordinator.IsResolving && frames < maxFrames)
+            {
+                animator.Tick(FrameStep);
+                frames++;
+            }
+
+            if (coordinator.IsResolving)
+            {
+                Debug.LogError($"[LevelPreview] Board never settled after {maxFrames} frames.");
+            }
+
+            return frames;
         }
 
         private static string PrepareOutputFolder()

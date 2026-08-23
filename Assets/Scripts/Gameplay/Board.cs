@@ -91,11 +91,36 @@ namespace Blast.Gameplay
         }
 
         /// <summary>
-        /// Registers an item across its whole footprint and snaps its transform and sorting order to
-        /// match. This is the only way items get onto the board, so the model and the view cannot
-        /// disagree about where something is.
+        /// Puts an item on the board and snaps its transform to the cell. Used when building a level,
+        /// where items simply appear in place.
         /// </summary>
         public void Place(GridItem item, Vector2Int origin)
+        {
+            Occupy(item, origin);
+            SnapToCell(item);
+        }
+
+        /// <summary>
+        /// Moves an item to a new origin in the model <em>without</em> touching its transform.
+        ///
+        /// Falling is resolved in the model up front and only then animated, so for the duration of
+        /// the animation the item's cell is already its destination while its transform is still
+        /// catching up. That is deliberate: the board is never in an intermediate state, so a second
+        /// query mid-fall still sees a consistent grid.
+        /// </summary>
+        public void MoveTo(GridItem item, Vector2Int origin)
+        {
+            Remove(item);
+            Occupy(item, origin);
+        }
+
+        /// <summary>Snaps an item's transform to the cell the model says it occupies.</summary>
+        public void SnapToCell(GridItem item)
+        {
+            item.transform.position = FootprintCenterWorld(item.Origin, item.Size);
+        }
+
+        private void Occupy(GridItem item, Vector2Int origin)
         {
             var size = item.Size;
 
@@ -115,7 +140,6 @@ namespace Blast.Gameplay
             }
 
             item.SetOrigin(origin);
-            item.transform.position = FootprintCenterWorld(origin, size);
 
             // Higher rows draw in front; see GridItem.SetSortingOrder for why.
             item.SetSortingOrder(origin.y);

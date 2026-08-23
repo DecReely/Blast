@@ -1,6 +1,7 @@
 using Blast.Effects;
 using Blast.Items;
 using Blast.Levels;
+using Blast.Motion;
 using UnityEngine;
 
 namespace Blast.Gameplay
@@ -21,8 +22,10 @@ namespace Blast.Gameplay
         [Header("Scene references")]
         [SerializeField] private Board _board;
         [SerializeField] private BoardFrame _boardFrame;
+        [SerializeField] private BoardMask _boardMask;
         [SerializeField] private BoardInput _boardInput;
         [SerializeField] private ParticleEffectPool _effectPool;
+        [SerializeField] private FallAnimator _fallAnimator;
 
         [Header("Layout")]
         [Tooltip("World position the board's centre is pinned to. Constant for every level, so " +
@@ -82,6 +85,11 @@ namespace Blast.Gameplay
                 _boardFrame.Fit(_board);
             }
 
+            if (_boardMask != null)
+            {
+                _boardMask.Fit(_board);
+            }
+
             StartSession(level);
         }
 
@@ -99,7 +107,9 @@ namespace Blast.Gameplay
                 groupFinder,
                 new HintController(groupFinder),
                 Moves,
-                _effectPool);
+                _effectPool,
+                new GravitySystem(_itemCatalog),
+                _fallAnimator);
 
             Coordinator.RefreshHints();
 
