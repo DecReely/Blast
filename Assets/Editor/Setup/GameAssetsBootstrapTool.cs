@@ -22,7 +22,12 @@ namespace Blast.EditorTools
         public const string LevelDatabasePath = "Assets/Data/LevelDatabase.asset";
 
         private const string PrefabFolder = "Assets/Prefabs/Items";
+        private const string EffectFolder = "Assets/Prefabs/Effects";
         private const string LevelFolder = "Assets/Data/Levels";
+        private const string CubeParticleFolder = "Assets/Art/Cubes/Particles";
+
+        /// <summary>Debris chunks thrown out when a cube is blasted.</summary>
+        private const int CubeDebrisCount = 7;
 
         private const string CubeDefaultFolder = "Assets/Art/Cubes/DefaultState";
         private const string CubeRocketFolder = "Assets/Art/Cubes/RocketState";
@@ -43,12 +48,21 @@ namespace Blast.EditorTools
         public static void CreateAll()
         {
             EnsureFolder(PrefabFolder);
+            EnsureFolder(EffectFolder);
+            EnsureFolder($"{EffectFolder}/Materials");
 
             var entries = new List<(string code, GridItem prefab)>();
 
             foreach (var (color, code, spriteName) in Cubes)
             {
-                entries.Add((code, CreateCube(color, spriteName)));
+                // Each colour gets its own debris burst, built before the cube so the cube prefab can
+                // reference it.
+                var blastEffect = EffectPrefabFactory.CreateDebrisBurst(
+                    $"CubeBlast_{color}",
+                    $"{CubeParticleFolder}/particle_{spriteName}.png",
+                    CubeDebrisCount);
+
+                entries.Add((code, CreateCube(color, spriteName, blastEffect)));
             }
 
             entries.Add(("hro", CreateRocket(Rocket.Axis.Horizontal)));
@@ -69,7 +83,7 @@ namespace Blast.EditorTools
 
         // ---------------------------------------------------------------- items
 
-        private static GridItem CreateCube(CubeColor color, string spriteName)
+        private static GridItem CreateCube(CubeColor color, string spriteName, ParticleSystem blastEffect)
         {
             var root = NewItemRoot($"Cube_{color}", out var spriteRenderer);
 
@@ -78,6 +92,7 @@ namespace Blast.EditorTools
 
             var cube = root.AddComponent<Cube>();
             var serialized = new SerializedObject(cube);
+            serialized.FindProperty("_clearEffectPrefab").objectReferenceValue = blastEffect;
             serialized.FindProperty("_color").enumValueIndex = (int)color;
             serialized.FindProperty("_spriteRenderer").objectReferenceValue = spriteRenderer;
             serialized.FindProperty("_defaultSprite").objectReferenceValue = defaultSprite;

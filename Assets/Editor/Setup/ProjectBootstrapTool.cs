@@ -1,3 +1,4 @@
+using Blast.Effects;
 using Blast.Gameplay;
 using Blast.Items;
 using Blast.Levels;
@@ -123,11 +124,17 @@ namespace Blast.EditorTools
             var boardCamera = camera.gameObject.AddComponent<BoardCamera>();
             Wire(boardCamera, ("_camera", camera));
 
+            // Input lives on the camera because a tap is only meaningful once unprojected through it.
+            var boardInput = camera.gameObject.AddComponent<BoardInput>();
+            Wire(boardInput, ("_camera", camera));
+
             var (board, boardFrame) = CreateBoardRoot();
+
+            var effectPool = new GameObject("Effects").AddComponent<ParticleEffectPool>();
 
             CreateCanvas("UI");
             CreateEventSystem();
-            CreateLevelSession(board, boardFrame);
+            CreateLevelSession(board, boardFrame, boardInput, effectPool);
 
             SaveScene(scene, LevelScenePath);
         }
@@ -197,7 +204,11 @@ namespace Blast.EditorTools
         /// The one object that knows about all the others. Kept separate from the board so the board
         /// itself has no opinion about which level is loaded or where levels come from.
         /// </summary>
-        private static void CreateLevelSession(Board board, BoardFrame boardFrame)
+        private static void CreateLevelSession(
+            Board board,
+            BoardFrame boardFrame,
+            BoardInput boardInput,
+            ParticleEffectPool effectPool)
         {
             var go = new GameObject("LevelSession");
             var controller = go.AddComponent<LevelSessionController>();
@@ -206,7 +217,9 @@ namespace Blast.EditorTools
                 ("_levelDatabase", AssetDatabase.LoadAssetAtPath<LevelDatabase>(GameAssetsBootstrapTool.LevelDatabasePath)),
                 ("_itemCatalog", AssetDatabase.LoadAssetAtPath<ItemCatalog>(GameAssetsBootstrapTool.ItemCatalogPath)),
                 ("_board", board),
-                ("_boardFrame", boardFrame));
+                ("_boardFrame", boardFrame),
+                ("_boardInput", boardInput),
+                ("_effectPool", effectPool));
         }
 
         /// <summary>

@@ -66,18 +66,7 @@ namespace Blast.Gameplay
             var root = board.ItemsRoot;
             for (var i = root.childCount - 1; i >= 0; i--)
             {
-                var child = root.GetChild(i).gameObject;
-
-                // Deferred destruction never runs outside play mode, so edit-mode tooling that
-                // rebuilds a board would otherwise stack duplicate items on top of each other.
-                if (Application.isPlaying)
-                {
-                    Object.Destroy(child);
-                }
-                else
-                {
-                    Object.DestroyImmediate(child);
-                }
+                ObjectLifetime.Destroy(root.GetChild(i).gameObject);
             }
         }
 

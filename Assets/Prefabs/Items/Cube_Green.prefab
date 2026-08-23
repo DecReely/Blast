@@ -118,6 +118,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: c601d240346086a4bbcef0f5089030ca, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Blast.Items.Cube
+  _clearEffectPrefab: {fileID: 6351982137415834159, guid: 3eeb421f1a71edf41b527f0059a49813, type: 3}
   _color: 1
   _spriteRenderer: {fileID: 4374490705725647383}
   _defaultSprite: {fileID: 21300000, guid: f2371927f68826a4da0d316ae50ead12, type: 3}

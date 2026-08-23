@@ -118,6 +118,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 1c2bad4b7dca2b44480aa0769c4d88b4, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Blast.Items.Vase
+  _clearEffectPrefab: {fileID: 0}
   _spriteRenderer: {fileID: 4463523048241038588}
   _maxHitPoints: 2
   _healthStateSprites:

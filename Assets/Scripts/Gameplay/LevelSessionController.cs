@@ -1,3 +1,4 @@
+using Blast.Effects;
 using Blast.Items;
 using Blast.Levels;
 using UnityEngine;
@@ -20,6 +21,8 @@ namespace Blast.Gameplay
         [Header("Scene references")]
         [SerializeField] private Board _board;
         [SerializeField] private BoardFrame _boardFrame;
+        [SerializeField] private BoardInput _boardInput;
+        [SerializeField] private ParticleEffectPool _effectPool;
 
         [Header("Layout")]
         [Tooltip("World position the board's centre is pinned to. Constant for every level, so " +
@@ -33,9 +36,23 @@ namespace Blast.Gameplay
         /// <summary>The level currently loaded, or null if loading failed.</summary>
         public LevelDefinition CurrentLevel { get; private set; }
 
+        /// <summary>Moves remaining in the current level. Recreated on every load.</summary>
+        public MoveCounter Moves { get; private set; }
+
+        /// <summary>Resolves taps for the current level. Recreated on every load.</summary>
+        public BoardCoordinator Coordinator { get; private set; }
+
         private void Start()
         {
             LoadLevel(ResolveLevelNumber());
+        }
+
+        private void OnDisable()
+        {
+            if (_boardInput != null)
+            {
+                _boardInput.WorldTapped -= OnWorldTapped;
+            }
         }
 
         /// <summary>Rebuilds the scene for a given 1-based level number.</summary>
@@ -64,6 +81,42 @@ namespace Blast.Gameplay
             {
                 _boardFrame.Fit(_board);
             }
+
+            StartSession(level);
+        }
+
+        /// <summary>
+        /// Builds the per-level gameplay objects. They are recreated rather than reset so replaying a
+        /// level cannot inherit state from the previous attempt.
+        /// </summary>
+        private void StartSession(LevelDefinition level)
+        {
+            var groupFinder = new GroupFinder();
+
+            Moves = new MoveCounter(level.MoveCount);
+            Coordinator = new BoardCoordinator(
+                _board,
+                groupFinder,
+                new HintController(groupFinder),
+                Moves,
+                _effectPool);
+
+            Coordinator.RefreshHints();
+
+            if (_boardInput == null)
+            {
+                return;
+            }
+
+            // Re-subscribing on every load, so guard against stacking duplicate handlers.
+            _boardInput.WorldTapped -= OnWorldTapped;
+            _boardInput.WorldTapped += OnWorldTapped;
+            _boardInput.AcceptsInput = true;
+        }
+
+        private void OnWorldTapped(Vector3 worldPosition)
+        {
+            Coordinator?.HandleWorldTap(worldPosition);
         }
 
         /// <summary>

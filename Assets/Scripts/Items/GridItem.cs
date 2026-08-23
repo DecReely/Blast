@@ -14,7 +14,17 @@ namespace Blast.Items
     [RequireComponent(typeof(SortingGroup))]
     public abstract class GridItem : MonoBehaviour
     {
+        [Tooltip("Particle burst played where the item stood when it is cleared from the board.")]
+        [SerializeField] private ParticleSystem _clearEffectPrefab;
+
         private SortingGroup _sortingGroup;
+
+        /// <summary>
+        /// The effect to play when this item is removed. Owned by the item rather than looked up by
+        /// the board, so each type carries its own presentation and adding a new item type needs no
+        /// change anywhere else.
+        /// </summary>
+        public ParticleSystem ClearEffectPrefab => _clearEffectPrefab;
 
         /// <summary>
         /// Bottom-left cell this item occupies. Written by the board; mirrored here purely so the

@@ -118,3 +118,4 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 14c42e28ebdc4f144ba26045d5d7e1ee, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Blast.Items.Stone
+  _clearEffectPrefab: {fileID: 0}
