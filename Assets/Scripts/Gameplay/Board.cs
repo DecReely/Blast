@@ -117,7 +117,7 @@ namespace Blast.Gameplay
             item.SetOrigin(origin);
             item.transform.position = FootprintCenterWorld(origin, size);
 
-            // Higher rows draw in front so the art's upward bevel is covered by the row above it.
+            // Higher rows draw in front; see GridItem.SetSortingOrder for why.
             item.SetSortingOrder(origin.y);
         }
 

@@ -1,5 +1,4 @@
 using System.Collections.Generic;
-using System.IO;
 using System.Text;
 using UnityEditor;
 using UnityEngine;
@@ -9,52 +8,39 @@ namespace Blast.EditorTools
     /// <summary>
     /// Applies this project's sprite import conventions to everything under <c>Assets/Art</c>.
     ///
-    /// The supplied art is authored on a 140 px grid: a one-cell item occupies the bottom
-    /// 140x140 px of its canvas and any extra height is the 3D top bevel that is meant to
-    /// overhang into the cell above (a cube is 142x162, a 2x2 chalice box is 300x300 = 280 px
-    /// of footprint plus the same 20 px bevel).
+    /// The art is authored on a <b>150 px square cell</b>, measured from two independent sources: the
+    /// 2x2 chalice box is exactly 300x300 px, and the reference screenshots in the case study have an
+    /// identical row and column pitch, confirming the cells really are square.
     ///
-    /// Importing every board sprite at 140 pixels-per-unit therefore makes one grid cell exactly
-    /// one world unit, and giving each sprite a pivot on the centre of its <em>footprint</em>
-    /// (rather than the centre of its canvas) means an item can always be positioned with a plain
-    /// <c>Grid.GetCellCenterWorld</c> call with no per-prefab offsets to maintain.
+    /// Items are drawn smaller than their cell and centred in it. A cube is 140x160 px, so it leaves
+    /// a 5 px gap on each side horizontally and overhangs 5 px above and below. That overhang is the
+    /// block's highlight and shadow edge, and overlapping it with the neighbouring rows is what
+    /// produces the shadow line between them.
+    ///
+    /// Importing every board sprite at 150 pixels-per-unit makes one cell exactly one world unit, and
+    /// a plain centred pivot then places any item — including the 2x2 chalice box, whose centre is the
+    /// point shared by its four cells — with no per-prefab offsets.
     /// </summary>
     public static class ArtImportSettingsTool
     {
-        /// <summary>Pixel size of a single grid cell in the supplied art.</summary>
-        public const int CellPixelSize = 140;
+        /// <summary>Pixel size of one square grid cell in the supplied art.</summary>
+        public const int CellPixelSize = 150;
+
+        /// <summary>Canvas-space art is sized by its RectTransform, so its scale is arbitrary.</summary>
+        private const int UiPixelsPerUnit = 100;
 
         private const string ArtRoot = "Assets/Art";
-
-        private enum PivotRule
-        {
-            /// <summary>Canvas centre. Used for particles and Canvas-space UI art.</summary>
-            CanvasCenter,
-
-            /// <summary>
-            /// Centre of the item's cell footprint, which is bottom-aligned on the canvas.
-            /// Lets the bevel overhang upwards while the pivot still lands on the cell centre.
-            /// </summary>
-            FootprintCenter
-        }
 
         private sealed class Convention
         {
             public string PathContains;
             public int PixelsPerUnit = CellPixelSize;
-            public PivotRule Pivot = PivotRule.CanvasCenter;
-
-            /// <summary>Height of the item's footprint in cells. Only used by <see cref="PivotRule.FootprintCenter"/>.</summary>
-            public int FootprintCellsY = 1;
 
             /// <summary>Non-zero enables 9-slicing (left, bottom, right, top in pixels).</summary>
             public Vector4 Border = Vector4.zero;
         }
 
-        /// <summary>
-        /// Ordered longest-prefix-first: the first entry whose path fragment matches wins, so
-        /// nested "Particles" folders must be listed before their parent category.
-        /// </summary>
+        /// <summary>Most specific first: the first entry whose path fragment matches wins.</summary>
         private static readonly Convention[] Conventions =
         {
             // The board frame is a rounded rect stretched around the whole grid, so it is 9-sliced.
@@ -64,41 +50,14 @@ namespace Blast.EditorTools
                 Border = new Vector4(24, 24, 24, 24)
             },
 
-            // Particle textures are driven by ParticleSystem modules, so they stay canvas-centred.
-            new Convention { PathContains = "/Particles/" },
-
-            // The chalice box is the only multi-cell item: a 2x2 footprint.
-            new Convention
-            {
-                PathContains = "Art/Obstacles/ChaliceBox/ChaliceBoxBg",
-                Pivot = PivotRule.FootprintCenter,
-                FootprintCellsY = 2
-            },
-            new Convention
-            {
-                PathContains = "Art/Obstacles/ChaliceBox/ChaliceBoxDoors",
-                Pivot = PivotRule.FootprintCenter,
-                FootprintCellsY = 2
-            },
-
-            // A collected chalice flies to the goal UI, so it is never cell-aligned.
-            new Convention { PathContains = "Art/Obstacles/ChaliceBox/Chalice" },
-
-            // Single-cell board items. Square art (rockets, TNT) resolves to a centred pivot
-            // through the same rule, so it needs no special case.
-            new Convention { PathContains = "Art/Cubes/", Pivot = PivotRule.FootprintCenter },
-            new Convention { PathContains = "Art/Obstacles/", Pivot = PivotRule.FootprintCenter },
-            new Convention { PathContains = "Art/SpecialItems/", Pivot = PivotRule.FootprintCenter },
-
-            // Canvas-space art is sized by its RectTransform, so pixels-per-unit is irrelevant.
-            new Convention { PathContains = "Art/UI/", PixelsPerUnit = 100 },
-            new Convention { PathContains = "Art/Menu/", PixelsPerUnit = 100 }
+            new Convention { PathContains = "Art/UI/", PixelsPerUnit = UiPixelsPerUnit },
+            new Convention { PathContains = "Art/Menu/", PixelsPerUnit = UiPixelsPerUnit }
         };
 
         [MenuItem("Dream Games/Setup/Apply Art Import Settings")]
         public static void Apply()
         {
-            var log = new StringBuilder("Art import settings\n");
+            var log = new StringBuilder();
             var changed = new List<string>();
 
             var guids = AssetDatabase.FindAssets("t:Texture2D", new[] { ArtRoot });
@@ -115,8 +74,7 @@ namespace Blast.EditorTools
                         continue;
                     }
 
-                    var convention = ResolveConvention(path);
-                    if (ApplyTo(importer, path, convention, log))
+                    if (ApplyTo(importer, ResolveConvention(path), log, path))
                     {
                         changed.Add(path);
                     }
@@ -132,8 +90,7 @@ namespace Blast.EditorTools
                 AssetDatabase.ImportAsset(path, ImportAssetOptions.ForceUpdate);
             }
 
-            log.Insert(0, $"Inspected {guids.Length} textures, reimported {changed.Count}.\n");
-            Debug.Log(log.ToString());
+            Debug.Log($"Art import settings: inspected {guids.Length} textures, reimported {changed.Count}.\n{log}");
         }
 
         private static Convention ResolveConvention(string assetPath)
@@ -146,38 +103,24 @@ namespace Blast.EditorTools
                 }
             }
 
-            return new Convention { Pivot = PivotRule.CanvasCenter };
+            // Everything else is board art and shares the cell-sized convention.
+            return new Convention();
         }
 
-        private static bool ApplyTo(TextureImporter importer, string assetPath, Convention convention, StringBuilder log)
+        private static bool ApplyTo(TextureImporter importer, Convention convention, StringBuilder log, string assetPath)
         {
             var settings = new TextureImporterSettings();
             importer.ReadTextureSettings(settings);
-
-            var pivot = new Vector2(0.5f, 0.5f);
-            var alignment = SpriteAlignment.Center;
-
-            if (convention.Pivot == PivotRule.FootprintCenter)
-            {
-                if (!TryReadPngSize(assetPath, out _, out var pixelHeight))
-                {
-                    log.AppendLine($"  ! could not read PNG header, left as-is: {assetPath}");
-                    return false;
-                }
-
-                // The footprint is bottom-aligned on the canvas, so the centre of the cell block
-                // sits half a footprint above the bottom edge of the sprite.
-                var footprintPixels = convention.FootprintCellsY * CellPixelSize;
-                pivot = new Vector2(0.5f, footprintPixels * 0.5f / pixelHeight);
-                alignment = SpriteAlignment.Custom;
-            }
 
             var before = Describe(settings, importer);
 
             settings.textureType = TextureImporterType.Sprite;
             settings.spriteMode = (int)SpriteImportMode.Single;
-            settings.spriteAlignment = (int)alignment;
-            settings.spritePivot = pivot;
+
+            // Every sprite is centred in its cell, so no custom pivots are needed anywhere.
+            settings.spriteAlignment = (int)SpriteAlignment.Center;
+            settings.spritePivot = new Vector2(0.5f, 0.5f);
+
             settings.spriteBorder = convention.Border;
             settings.spriteMeshType = SpriteMeshType.FullRect;
             settings.mipmapEnabled = false;
@@ -206,42 +149,6 @@ namespace Blast.EditorTools
                    $"align={settings.spriteAlignment} border={settings.spriteBorder} " +
                    $"mesh={settings.spriteMeshType} mips={settings.mipmapEnabled} " +
                    $"compression={importer.textureCompression} max={importer.maxTextureSize}";
-        }
-
-        /// <summary>
-        /// Reads width/height straight out of the PNG IHDR chunk.
-        /// Deliberately avoids <c>Texture2D.width</c>, which reports the <em>imported</em> size and
-        /// would feed a downscaled height back into the pivot maths.
-        /// </summary>
-        private static bool TryReadPngSize(string assetPath, out int width, out int height)
-        {
-            width = 0;
-            height = 0;
-
-            var fullPath = Path.Combine(Directory.GetCurrentDirectory(), assetPath);
-            if (!File.Exists(fullPath) || Path.GetExtension(fullPath).ToLowerInvariant() != ".png")
-            {
-                return false;
-            }
-
-            var header = new byte[24];
-            using (var stream = File.OpenRead(fullPath))
-            {
-                if (stream.Read(header, 0, header.Length) != header.Length)
-                {
-                    return false;
-                }
-            }
-
-            // 8 byte signature, then a chunk length, then "IHDR", then big-endian width/height.
-            if (header[12] != 'I' || header[13] != 'H' || header[14] != 'D' || header[15] != 'R')
-            {
-                return false;
-            }
-
-            width = (header[16] << 24) | (header[17] << 16) | (header[18] << 8) | header[19];
-            height = (header[20] << 24) | (header[21] << 16) | (header[22] << 8) | header[23];
-            return width > 0 && height > 0;
         }
     }
 }

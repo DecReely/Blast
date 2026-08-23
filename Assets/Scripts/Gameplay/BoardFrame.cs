@@ -5,18 +5,17 @@ namespace Blast.Gameplay
     /// <summary>
     /// Stretches the 9-sliced board background around whatever size the current level's grid is.
     ///
-    /// The top padding is larger than the bottom by default because the item art has a bevel that
-    /// overhangs upwards out of its cell, so the top row needs slightly more room than the bottom to
-    /// look evenly inset.
+    /// Item art overhangs its cell slightly on the top and bottom edges, so the vertical padding is a
+    /// little larger than the horizontal to keep the inset looking even.
     /// </summary>
     public sealed class BoardFrame : MonoBehaviour
     {
         [SerializeField] private SpriteRenderer _spriteRenderer;
 
         [Header("Padding around the grid, in cells")]
-        [SerializeField] private float _horizontalPadding = 0.32f;
-        [SerializeField] private float _bottomPadding = 0.28f;
-        [SerializeField] private float _topPadding = 0.44f;
+        [SerializeField] private float _horizontalPadding = 0.3f;
+        [SerializeField] private float _bottomPadding = 0.34f;
+        [SerializeField] private float _topPadding = 0.34f;
 
         private void Awake()
         {

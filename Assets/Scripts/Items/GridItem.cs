@@ -48,11 +48,15 @@ namespace Blast.Items
         }
 
         /// <summary>
-        /// Sprites are ordered so that higher rows draw in front of lower ones. The art has a 3D
-        /// bevel that overhangs upwards into the cell above, and the row above must cover it —
-        /// otherwise the bevel shows through as a dark sliver across the top of every item.
-        /// A <see cref="SortingGroup"/> is used so multi-renderer items (the chalice box) sort as
-        /// one unit while keeping their internal layering.
+        /// Sprites are ordered so that higher rows draw in front of lower ones.
+        ///
+        /// Board art is slightly taller than its cell (a cube is 140x160 px in a 150 px cell) and is
+        /// centred, so vertically adjacent items overlap by a few pixels. Drawing the upper row in
+        /// front puts its shadowed bottom edge over the lower item's highlight, which is what gives
+        /// the rows their shadow separation; the reverse order lays a bright edge between rows instead.
+        ///
+        /// A <see cref="SortingGroup"/> is used so multi-renderer items (the chalice box) sort as one
+        /// unit while keeping their internal layering.
         /// </summary>
         internal void SetSortingOrder(int order)
         {

@@ -17,7 +17,6 @@ namespace Blast.Levels
         /// collapses into a single 2x2 item anchored at its bottom-left corner.
         /// </summary>
         public const string ChaliceBoxBottomLeft = "cbBL";
-
         public const string ChaliceBoxBottomRight = "cbBR";
         public const string ChaliceBoxTopLeft = "cbTL";
         public const string ChaliceBoxTopRight = "cbTR";

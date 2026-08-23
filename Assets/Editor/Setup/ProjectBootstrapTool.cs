@@ -165,7 +165,7 @@ namespace Blast.EditorTools
 
             var grid = boardGo.GetComponent<Grid>();
 
-            // Art is imported at 140 pixels-per-unit, so one cell is exactly one world unit.
+            // Art is imported at the cell's pixel size, so one cell is exactly one world unit.
             grid.cellSize = new Vector3(1f, 1f, 0f);
             grid.cellGap = Vector3.zero;
 
