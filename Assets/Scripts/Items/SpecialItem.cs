@@ -12,5 +12,16 @@ namespace Blast.Items
     {
         /// <summary>Special items obey gravity just like cubes.</summary>
         public override bool CanFall => true;
+
+        /// <summary>
+        /// Never reached in practice: the explosion system detects a special in a damaged cell and
+        /// detonates it instead of damaging it, which is how a chain reaction propagates. Reported
+        /// as "not destroyed" so that a caller which bypassed that path cannot silently delete a
+        /// special without triggering it.
+        /// </summary>
+        public override bool TryTakeDamage(DamageInfo damage)
+        {
+            return false;
+        }
     }
 }

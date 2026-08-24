@@ -12,5 +12,13 @@ namespace Blast.Items
         /// another column.
         /// </summary>
         public override bool CanFall => false;
+
+        /// <summary>
+        /// Immune to blasts however many cubes go off beside it; a single explosion clears it.
+        /// </summary>
+        public override bool TryTakeDamage(DamageInfo damage)
+        {
+            return damage.Source == DamageSource.Explosion;
+        }
     }
 }

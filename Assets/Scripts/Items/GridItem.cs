@@ -43,6 +43,14 @@ namespace Blast.Items
         /// </summary>
         public abstract bool CanFall { get; }
 
+        /// <summary>
+        /// Applies one hit and reports whether the item is now finished and should be removed.
+        ///
+        /// Abstract rather than virtual on purpose: every item type has a genuinely different rule,
+        /// and forcing each to state it prevents a new type from silently inheriting "immune".
+        /// </summary>
+        public abstract bool TryTakeDamage(DamageInfo damage);
+
         protected virtual void Awake()
         {
             _sortingGroup = GetComponent<SortingGroup>();

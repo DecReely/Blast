@@ -13,6 +13,16 @@ namespace Blast.Levels
         public const string RandomCube = "rand";
 
         /// <summary>
+        /// Special items. Named because they are also spawned at runtime by a blast, not only read
+        /// from a level file, so the two paths must agree on the code.
+        /// </summary>
+        public const string HorizontalRocket = "hro";
+
+        public const string VerticalRocket = "vro";
+
+        public const string Tnt = "t";
+
+        /// <summary>
         /// The chalice box is the only multi-cell item: it is authored as four corner codes and
         /// collapses into a single 2x2 item anchored at its bottom-left corner.
         /// </summary>

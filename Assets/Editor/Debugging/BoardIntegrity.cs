@@ -1,7 +1,7 @@
 using System.Collections.Generic;
 using System.Text;
 using Blast.Gameplay;
-using Blast.Motion;
+using Blast.Items;
 using UnityEditor;
 using UnityEngine;
 
@@ -77,72 +77,35 @@ namespace Blast.EditorTools
         }
 
         /// <summary>
-        /// Plays a series of blasts on every level, settling each one, and reports any violation.
-        /// This is the main regression test for gravity and refill.
+        /// Plays a long series of turns on every level, letting each one fully resolve, and reports
+        /// any violation. This is the main regression test for blasting, explosions and refill.
         /// </summary>
-        [MenuItem("Dream Games/Debug/Run Gravity Stress Test")]
+        [MenuItem("Dream Games/Debug/Run Board Stress Test")]
         public static void RunStressTest()
         {
-            const int blastsPerLevel = 12;
+            const int turnsPerLevel = 15;
             var report = new StringBuilder();
-            var totalBlasts = 0;
-            var totalViolations = 0;
+            var totals = new Totals();
 
-            LevelPreviewTool.RunHeadless((session, board, animator) =>
+            LevelPreviewTool.RunHeadless(context =>
             {
                 for (var levelNumber = 1; levelNumber <= 10; levelNumber++)
                 {
-                    session.LoadLevel(levelNumber);
-
-                    // Recreated per level, so it has to be re-read after every load.
-                    var coordinator = session.Coordinator;
+                    context.Session.LoadLevel(levelNumber);
 
                     // Deterministic per level so a failure can be reproduced.
                     Random.InitState(levelNumber * 7919);
 
-                    var level = session.CurrentLevel;
-                    var blasted = 0;
-
-                    for (var attempt = 0; attempt < blastsPerLevel * 20 && blasted < blastsPerLevel; attempt++)
-                    {
-                        var cell = new Vector2Int(
-                            Random.Range(0, level.Width),
-                            Random.Range(0, level.Height));
-
-                        var before = session.Moves.Remaining;
-                        coordinator.HandleWorldTap(board.CellToWorld(cell));
-
-                        if (session.Moves.Remaining == before)
-                        {
-                            // Not a blastable cell; costs nothing and changes nothing.
-                            continue;
-                        }
-
-                        LevelPreviewTool.RunUntilSettled(animator, coordinator);
-                        blasted++;
-                        totalBlasts++;
-
-                        var violations = FindViolations(board);
-                        if (violations.Count == 0)
-                        {
-                            continue;
-                        }
-
-                        totalViolations += violations.Count;
-                        report.AppendLine($"  level {levelNumber}, blast {blasted} at {cell}:");
-                        foreach (var violation in violations)
-                        {
-                            report.AppendLine($"    {violation}");
-                        }
-                    }
-
-                    report.AppendLine($"  level {levelNumber}: {blasted} blasts, {level.Width}x{level.Height}");
+                    PlayLevel(context, levelNumber, turnsPerLevel, report, totals);
                 }
             });
 
-            var summary = $"Gravity stress test: {totalBlasts} blasts, {totalViolations} violations.\n{report}";
+            var summary =
+                $"Board stress test: {totals.Turns} turns " +
+                $"({totals.Blasts} blasts, {totals.SpecialsCreated} specials created, " +
+                $"{totals.Detonations} detonations), {totals.Violations} violations.\n{report}";
 
-            if (totalViolations == 0)
+            if (totals.Violations == 0)
             {
                 Debug.Log(summary);
             }
@@ -150,6 +113,100 @@ namespace Blast.EditorTools
             {
                 Debug.LogError(summary);
             }
+        }
+
+        private sealed class Totals
+        {
+            public int Turns;
+            public int Blasts;
+            public int SpecialsCreated;
+            public int Detonations;
+            public int Violations;
+        }
+
+        private static void PlayLevel(
+            LevelPreviewTool.Context context,
+            int levelNumber,
+            int turns,
+            StringBuilder report,
+            Totals totals)
+        {
+            var board = context.Board;
+            var level = context.Session.CurrentLevel;
+            var played = 0;
+
+            for (var attempt = 0; attempt < turns * 25 && played < turns; attempt++)
+            {
+                var coordinator = context.Session.Coordinator;
+
+                var cell = new Vector2Int(
+                    Random.Range(0, level.Width),
+                    Random.Range(0, level.Height));
+
+                var wasSpecial = board.GetItem(cell) is SpecialItem;
+                var specialsBefore = CountSpecials(board);
+                var movesBefore = context.Session.Moves.Remaining;
+
+                coordinator.HandleWorldTap(board.CellToWorld(cell));
+
+                if (context.Session.Moves.Remaining == movesBefore && !coordinator.IsResolving)
+                {
+                    // Not a legal tap; costs nothing and changes nothing.
+                    continue;
+                }
+
+                context.Ticker.RunUntilIdle(coordinator);
+
+                played++;
+                totals.Turns++;
+
+                if (wasSpecial)
+                {
+                    totals.Detonations++;
+                }
+                else
+                {
+                    totals.Blasts++;
+                }
+
+                if (CountSpecials(board) > specialsBefore)
+                {
+                    totals.SpecialsCreated++;
+                }
+
+                var violations = FindViolations(board);
+                if (violations.Count == 0)
+                {
+                    continue;
+                }
+
+                totals.Violations += violations.Count;
+                report.AppendLine($"  level {levelNumber}, turn {played} at {cell}:");
+                foreach (var violation in violations)
+                {
+                    report.AppendLine($"    {violation}");
+                }
+            }
+
+            report.AppendLine($"  level {levelNumber}: {played} turns on a {level.Width}x{level.Height} board");
+        }
+
+        private static int CountSpecials(Board board)
+        {
+            var count = 0;
+
+            for (var y = 0; y < board.Height; y++)
+            {
+                for (var x = 0; x < board.Width; x++)
+                {
+                    if (board.GetItem(new Vector2Int(x, y)) is SpecialItem)
+                    {
+                        count++;
+                    }
+                }
+            }
+
+            return count;
         }
     }
 }

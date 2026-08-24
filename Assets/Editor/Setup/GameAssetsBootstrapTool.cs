@@ -21,6 +21,9 @@ namespace Blast.EditorTools
         public const string ItemCatalogPath = "Assets/Data/ItemCatalog.asset";
         public const string LevelDatabasePath = "Assets/Data/LevelDatabase.asset";
 
+        /// <summary>Sprite-only visual used for each half of a splitting rocket.</summary>
+        public const string RocketHalfPrefabPath = "Assets/Prefabs/Effects/RocketHalf.prefab";
+
         private const string PrefabFolder = "Assets/Prefabs/Items";
         private const string EffectFolder = "Assets/Prefabs/Effects";
         private const string LevelFolder = "Assets/Data/Levels";
@@ -65,12 +68,14 @@ namespace Blast.EditorTools
                 entries.Add((code, CreateCube(color, spriteName, blastEffect)));
             }
 
-            entries.Add(("hro", CreateRocket(Rocket.Axis.Horizontal)));
-            entries.Add(("vro", CreateRocket(Rocket.Axis.Vertical)));
-            entries.Add(("t", CreateTnt()));
+            entries.Add((LevelCodes.HorizontalRocket, CreateRocket(Rocket.Axis.Horizontal)));
+            entries.Add((LevelCodes.VerticalRocket, CreateRocket(Rocket.Axis.Vertical)));
+            entries.Add((LevelCodes.Tnt, CreateTnt()));
             entries.Add(("s", CreateStone()));
             entries.Add(("v", CreateVase()));
             entries.Add((LevelCodes.ChaliceBoxBottomLeft, CreateChaliceBox()));
+
+            CreateRocketHalfPrefab();
 
             CreateItemCatalog(entries);
             CreateLevelDatabase();
@@ -116,6 +121,9 @@ namespace Blast.EditorTools
 
             var rocket = root.AddComponent<Rocket>();
             var serialized = new SerializedObject(rocket);
+            serialized.FindProperty("_clearEffectPrefab").objectReferenceValue =
+                EffectPrefabFactory.CreateDebrisBurst(
+                    "RocketBurst", "Assets/Art/SpecialItems/Rocket/Particles/particle_star.png", 8);
             serialized.FindProperty("_axis").enumValueIndex = (int)axis;
             serialized.FindProperty("_negativeHalfSprite").objectReferenceValue =
                 LoadSprite($"{RocketFolder}/{stem}_part_{(horizontal ? "left" : "bottom")}.png");
@@ -130,9 +138,32 @@ namespace Blast.EditorTools
         {
             var root = NewItemRoot("Tnt", out var spriteRenderer);
             spriteRenderer.sprite = LoadSprite("Assets/Art/SpecialItems/TNT/TNT.png");
-            root.AddComponent<Tnt>();
+
+            var tnt = root.AddComponent<Tnt>();
+            var serialized = new SerializedObject(tnt);
+            serialized.FindProperty("_clearEffectPrefab").objectReferenceValue =
+                EffectPrefabFactory.CreateDebrisBurst(
+                    "TntBlast", "Assets/Art/SpecialItems/TNT/Particles/particle_tnt_01.png", 12);
+            serialized.ApplyModifiedPropertiesWithoutUndo();
 
             return SavePrefab<Tnt>(root, "Tnt");
+        }
+
+        /// <summary>
+        /// The two halves a rocket splits into are not board items — they occupy no cell — so they
+        /// are a bare sprite prefab whose image is chosen when the sweep starts.
+        /// </summary>
+        private static void CreateRocketHalfPrefab()
+        {
+            var root = new GameObject("RocketHalf");
+            var renderer = root.AddComponent<SpriteRenderer>();
+
+            // Above every board row, and clipped to the board so it vanishes at the edge.
+            renderer.sortingOrder = 50;
+            renderer.maskInteraction = SpriteMaskInteraction.VisibleInsideMask;
+
+            PrefabUtility.SaveAsPrefabAsset(root, RocketHalfPrefabPath);
+            Object.DestroyImmediate(root);
         }
 
         private static GridItem CreateStone()

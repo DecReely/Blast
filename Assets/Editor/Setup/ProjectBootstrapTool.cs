@@ -133,10 +133,21 @@ namespace Blast.EditorTools
 
             var effectPool = new GameObject("Effects").AddComponent<ParticleEffectPool>();
             var fallAnimator = new GameObject("FallAnimator").AddComponent<FallAnimator>();
+            var mergeAnimator = new GameObject("MergeAnimator").AddComponent<MergeAnimator>();
+            var actionRunner = new GameObject("BoardActions").AddComponent<BoardActionRunner>();
+
+            var specialVisualsGo = new GameObject("SpecialItemVisuals");
+            var specialVisuals = specialVisualsGo.AddComponent<SpecialItemVisuals>();
+            Wire(specialVisuals,
+                ("_rocketHalfPrefab", AssetDatabase
+                    .LoadAssetAtPath<GameObject>(GameAssetsBootstrapTool.RocketHalfPrefabPath)
+                    .GetComponent<SpriteRenderer>()));
 
             CreateCanvas("UI");
             CreateEventSystem();
-            CreateLevelSession(board, boardFrame, boardMask, boardInput, effectPool, fallAnimator);
+            CreateLevelSession(
+                board, boardFrame, boardMask, boardInput, effectPool,
+                fallAnimator, mergeAnimator, actionRunner, specialVisuals);
 
             SaveScene(scene, LevelScenePath);
         }
@@ -219,7 +230,10 @@ namespace Blast.EditorTools
             BoardMask boardMask,
             BoardInput boardInput,
             ParticleEffectPool effectPool,
-            FallAnimator fallAnimator)
+            FallAnimator fallAnimator,
+            MergeAnimator mergeAnimator,
+            BoardActionRunner actionRunner,
+            SpecialItemVisuals specialItemVisuals)
         {
             var go = new GameObject("LevelSession");
             var controller = go.AddComponent<LevelSessionController>();
@@ -232,7 +246,10 @@ namespace Blast.EditorTools
                 ("_boardMask", boardMask),
                 ("_boardInput", boardInput),
                 ("_effectPool", effectPool),
-                ("_fallAnimator", fallAnimator));
+                ("_fallAnimator", fallAnimator),
+                ("_mergeAnimator", mergeAnimator),
+                ("_actionRunner", actionRunner),
+                ("_specialItemVisuals", specialItemVisuals));
         }
 
         /// <summary>

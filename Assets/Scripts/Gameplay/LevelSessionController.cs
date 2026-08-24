@@ -26,6 +26,9 @@ namespace Blast.Gameplay
         [SerializeField] private BoardInput _boardInput;
         [SerializeField] private ParticleEffectPool _effectPool;
         [SerializeField] private FallAnimator _fallAnimator;
+        [SerializeField] private MergeAnimator _mergeAnimator;
+        [SerializeField] private BoardActionRunner _actionRunner;
+        [SerializeField] private SpecialItemVisuals _specialItemVisuals;
 
         [Header("Layout")]
         [Tooltip("World position the board's centre is pinned to. Constant for every level, so " +
@@ -109,7 +112,11 @@ namespace Blast.Gameplay
                 Moves,
                 _effectPool,
                 new GravitySystem(_itemCatalog),
-                _fallAnimator);
+                new ExplosionSystem(_board, _actionRunner, _effectPool, _specialItemVisuals),
+                _actionRunner,
+                new SpecialItemFactory(_itemCatalog),
+                _fallAnimator,
+                _mergeAnimator);
 
             Coordinator.RefreshHints();
 

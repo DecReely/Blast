@@ -33,6 +33,12 @@ namespace Blast.Items
 
         public override bool CanFall => true;
 
+        /// <summary>Cubes have no health: anything that reaches them clears them.</summary>
+        public override bool TryTakeDamage(DamageInfo damage)
+        {
+            return true;
+        }
+
         /// <summary>
         /// Swaps the cube artwork to advertise the special item its group is eligible to create.
         /// No-ops when the hint has not changed so recomputing hints every settle is cheap.

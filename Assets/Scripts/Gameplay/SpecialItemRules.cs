@@ -1,4 +1,6 @@
 using Blast.Items;
+using Blast.Levels;
+using UnityEngine;
 
 namespace Blast.Gameplay
 {
@@ -25,6 +27,16 @@ namespace Blast.Gameplay
             return groupSize >= MinimumBlastSize;
         }
 
+        /// <summary>
+        /// Whether a group of this size collapses into a special item.
+        /// Separate from <see cref="SpecialCodeFor"/> because that picks a rocket orientation at
+        /// random, so it must be called exactly once per blast.
+        /// </summary>
+        public static bool CreatesSpecial(int groupSize)
+        {
+            return groupSize >= RocketThreshold;
+        }
+
         /// <summary>The hint cubes in a group of this size should display.</summary>
         public static Cube.Hint HintFor(int groupSize)
         {
@@ -34,6 +46,28 @@ namespace Blast.Gameplay
             }
 
             return groupSize >= RocketThreshold ? Cube.Hint.Rocket : Cube.Hint.None;
+        }
+
+        /// <summary>
+        /// Item code for the special a blast of this size creates, or null when the group is too
+        /// small to earn one. A rocket's orientation is chosen at random, as the case study specifies.
+        ///
+        /// Shares its thresholds with <see cref="HintFor"/>, so what the cubes advertised is
+        /// necessarily what appears.
+        /// </summary>
+        public static string SpecialCodeFor(int groupSize)
+        {
+            if (groupSize >= TntThreshold)
+            {
+                return LevelCodes.Tnt;
+            }
+
+            if (groupSize < RocketThreshold)
+            {
+                return null;
+            }
+
+            return Random.value < 0.5f ? LevelCodes.HorizontalRocket : LevelCodes.VerticalRocket;
         }
     }
 }

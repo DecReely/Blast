@@ -1,6 +1,6 @@
+using System;
 using System.IO;
 using Blast.Gameplay;
-using Blast.Motion;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
@@ -10,8 +10,8 @@ namespace Blast.EditorTools
     /// <summary>
     /// Renders levels offscreen to PNG files.
     ///
-    /// A development aid that makes board layout, cell alignment, sprite sorting and blast behaviour
-    /// reviewable at a glance, without having to enter play mode and step through by hand.
+    /// A development aid that makes board layout, sprite sorting, falling and explosions reviewable
+    /// at a glance, without having to enter play mode and step through by hand.
     ///
     /// Everything it spawns is torn down again before it returns. An earlier version left the items
     /// it built sitting in <c>LevelScene</c>, which then got saved into the scene asset — so cleanup
@@ -26,27 +26,33 @@ namespace Blast.EditorTools
 
         private const int LevelCount = 10;
 
-        /// <summary>Fixed time step used to drive animation outside play mode, where there is no Update.</summary>
-        internal const float FrameStep = 1f / 60f;
+        /// <summary>Context handed to a capture body.</summary>
+        internal sealed class Context
+        {
+            public LevelSessionController Session;
+            public Board Board;
+            public SceneTicker Ticker;
+            public Action<string> Capture;
+        }
 
         [MenuItem("Dream Games/Debug/Capture Level Previews")]
         public static void CaptureAll()
         {
             var outputFolder = PrepareOutputFolder();
 
-            RunInLevelScene((session, camera, capture) =>
+            RunInLevelScene(context =>
             {
                 for (var levelNumber = 1; levelNumber <= LevelCount; levelNumber++)
                 {
-                    session.LoadLevel(levelNumber);
+                    context.Session.LoadLevel(levelNumber);
 
-                    var level = session.CurrentLevel;
+                    var level = context.Session.CurrentLevel;
                     if (level == null)
                     {
                         continue;
                     }
 
-                    capture(Path.Combine(
+                    context.Capture(Path.Combine(
                         outputFolder,
                         $"level_{levelNumber:00}_{level.Width}x{level.Height}.png"));
                 }
@@ -56,159 +62,184 @@ namespace Blast.EditorTools
         }
 
         /// <summary>
-        /// Loads a level, taps a cell and captures before/after, which exercises the whole tap
-        /// pipeline — screen-to-cell conversion, group finding, the move counter and hint refresh.
+        /// Captures the three distinct turn types in sequence on one board: a plain blast, a blast
+        /// large enough to create a special, and detonating that special. Exercises the whole tap
+        /// pipeline including chain reactions.
         /// </summary>
-        [MenuItem("Dream Games/Debug/Capture Blast Simulation")]
-        public static void CaptureBlastSimulation()
+        [MenuItem("Dream Games/Debug/Capture Turn Simulation")]
+        public static void CaptureTurnSimulation()
         {
             var outputFolder = PrepareOutputFolder();
 
-            // Level 1 has a solid block of six blue cubes in its third row, which is large enough to
-            // show both a TNT hint beforehand and an obvious hole afterwards.
-            const int levelNumber = 1;
-            var tappedCell = new Vector2Int(2, 2);
-
-            RunInLevelScene((session, camera, capture) =>
+            RunInLevelScene(context =>
             {
-                session.LoadLevel(levelNumber);
+                // Level 1: two full rows of stone under a large field of cubes, so a rocket sweeping
+                // along the bottom has plenty to clear.
+                context.Session.LoadLevel(1);
 
-                var board = Object.FindFirstObjectByType<Board>();
-                var coordinator = session.Coordinator;
-                if (board == null || coordinator == null)
+                var board = context.Board;
+                var coordinator = context.Session.Coordinator;
+
+                context.Capture(Path.Combine(outputFolder, "turn_0_start.png"));
+
+                // A big group becomes a special item; capture the cubes mid-flight.
+                var cell = FindLargestCubeGroupCell(board, out var groupSize);
+                var movesBefore = context.Session.Moves.Remaining;
+
+                coordinator.HandleWorldTap(board.CellToWorld(cell));
+                context.Ticker.Advance(4);
+                context.Capture(Path.Combine(outputFolder, "turn_1_merging.png"));
+
+                context.Ticker.RunUntilIdle(coordinator);
+                context.Capture(Path.Combine(outputFolder, "turn_2_special_created.png"));
+
+                var special = FindSpecial(board, out var specialCell);
+                Debug.Log($"[LevelPreview] Blasted {groupSize} cubes at {cell} " +
+                          $"(moves {movesBefore} -> {context.Session.Moves.Remaining}); " +
+                          $"created {(special == null ? "nothing" : special.GetType().Name)} at {specialCell}.");
+
+                if (special == null)
                 {
-                    Debug.LogError("[LevelPreview] Level session did not start.");
                     return;
                 }
 
-                capture(Path.Combine(outputFolder, "blast_0_before.png"));
+                // Detonating it: capture the sweep in flight, then the aftermath.
+                coordinator.HandleWorldTap(board.CellToWorld(specialCell));
+                context.Ticker.Advance(5);
+                context.Capture(Path.Combine(outputFolder, "turn_3_exploding.png"));
 
-                var animator = Object.FindFirstObjectByType<FallAnimator>();
-                var movesBefore = session.Moves.Remaining;
+                var frames = context.Ticker.RunUntilIdle(coordinator);
+                context.Capture(Path.Combine(outputFolder, "turn_4_settled.png"));
 
-                coordinator.HandleWorldTap(board.CellToWorld(tappedCell));
-
-                // A few frames in, so the capture shows items genuinely in mid-air.
-                Advance(animator, 5);
-                capture(Path.Combine(outputFolder, "blast_1_midfall.png"));
-
-                var frames = RunUntilSettled(animator, coordinator);
-                capture(Path.Combine(outputFolder, "blast_2_settled.png"));
-
-                Debug.Log($"[LevelPreview] Tapped {tappedCell}: moves {movesBefore} -> {session.Moves.Remaining}, " +
-                          $"settled after {frames} frames.");
-                Debug.Log("[LevelPreview] " + BoardIntegrity.Describe(board));
+                Debug.Log($"[LevelPreview] Detonation settled after {frames} frames. " +
+                          BoardIntegrity.Describe(board));
             });
 
-            Debug.Log($"[LevelPreview] Blast simulation written to {outputFolder}");
+            Debug.Log($"[LevelPreview] Turn simulation written to {outputFolder}");
         }
 
-        /// <summary>
-        /// Opens LevelScene, hands the caller a configured camera plus a capture callback, and
-        /// guarantees the scene is emptied of spawned items again afterwards.
-        /// </summary>
-        private static void RunInLevelScene(System.Action<LevelSessionController, Camera, System.Action<string>> body)
+        /// <summary>Cell belonging to the biggest cube group, so the tap reliably creates a special.</summary>
+        private static Vector2Int FindLargestCubeGroupCell(Board board, out int groupSize)
         {
-            EditorSceneManager.OpenScene(ProjectBootstrapTool.LevelScenePath, OpenSceneMode.Single);
+            var finder = new GroupFinder();
+            var buffer = new System.Collections.Generic.List<Vector2Int>();
 
-            var session = Object.FindFirstObjectByType<LevelSessionController>();
-            var boardCamera = Object.FindFirstObjectByType<BoardCamera>();
-            var camera = boardCamera != null ? boardCamera.GetComponent<Camera>() : null;
+            var best = Vector2Int.zero;
+            groupSize = 0;
 
-            if (session == null || camera == null)
+            for (var y = 0; y < board.Height; y++)
             {
-                Debug.LogError("[LevelPreview] LevelScene is missing its session controller or camera.");
-                return;
-            }
-
-            var renderTexture = new RenderTexture(CaptureWidth, CaptureHeight, 24);
-            var previousTarget = camera.targetTexture;
-            camera.targetTexture = renderTexture;
-
-            // Assigning a render texture changes the camera's aspect, so resize after doing so.
-            boardCamera.Apply();
-
-            try
-            {
-                body(session, camera, path => File.WriteAllBytes(path, Capture(camera, renderTexture)));
-            }
-            finally
-            {
-                camera.targetTexture = previousTarget;
-                Object.DestroyImmediate(renderTexture);
-
-                // Leave no spawned items behind: if the scene is saved later they would be baked in.
-                var board = Object.FindFirstObjectByType<Board>();
-                if (board != null)
+                for (var x = 0; x < board.Width; x++)
                 {
-                    BoardBuilder.ClearItems(board);
+                    var cell = new Vector2Int(x, y);
+                    var size = finder.FindGroupOfCubes(board, cell, buffer);
+
+                    if (size <= groupSize)
+                    {
+                        continue;
+                    }
+
+                    groupSize = size;
+                    best = cell;
                 }
             }
+
+            return best;
+        }
+
+        private static Items.SpecialItem FindSpecial(Board board, out Vector2Int cell)
+        {
+            for (var y = 0; y < board.Height; y++)
+            {
+                for (var x = 0; x < board.Width; x++)
+                {
+                    cell = new Vector2Int(x, y);
+                    if (board.GetItem(cell) is Items.SpecialItem special)
+                    {
+                        return special;
+                    }
+                }
+            }
+
+            cell = Vector2Int.zero;
+            return null;
         }
 
         /// <summary>
         /// Opens LevelScene and hands the caller its gameplay objects, with no rendering set up.
         /// Used by logic-only checks. Spawned items are cleared again on the way out.
         /// </summary>
-        internal static void RunHeadless(System.Action<LevelSessionController, Board, FallAnimator> body)
+        internal static void RunHeadless(Action<Context> body)
+        {
+            Run(body, withRendering: false);
+        }
+
+        private static void RunInLevelScene(Action<Context> body)
+        {
+            Run(body, withRendering: true);
+        }
+
+        private static void Run(Action<Context> body, bool withRendering)
         {
             EditorSceneManager.OpenScene(ProjectBootstrapTool.LevelScenePath, OpenSceneMode.Single);
 
-            var session = Object.FindFirstObjectByType<LevelSessionController>();
-            var board = Object.FindFirstObjectByType<Board>();
-            var animator = Object.FindFirstObjectByType<FallAnimator>();
+            var session = UnityEngine.Object.FindFirstObjectByType<LevelSessionController>();
+            var board = UnityEngine.Object.FindFirstObjectByType<Board>();
+            var boardCamera = UnityEngine.Object.FindFirstObjectByType<BoardCamera>();
+            var ticker = SceneTicker.FromOpenScene();
 
-            if (session == null || board == null || animator == null)
+            if (session == null || board == null || ticker == null)
             {
                 Debug.LogError("[LevelPreview] LevelScene is missing a gameplay object.");
                 return;
             }
 
+            var context = new Context
+            {
+                Session = session,
+                Board = board,
+                Ticker = ticker,
+                Capture = _ => { }
+            };
+
+            RenderTexture renderTexture = null;
+            RenderTexture previousTarget = null;
+            Camera camera = null;
+
+            if (withRendering && boardCamera != null)
+            {
+                camera = boardCamera.GetComponent<Camera>();
+                renderTexture = new RenderTexture(CaptureWidth, CaptureHeight, 24);
+                previousTarget = camera.targetTexture;
+                camera.targetTexture = renderTexture;
+
+                // Assigning a render texture changes the camera's aspect, so resize after doing so.
+                boardCamera.Apply();
+
+                var target = renderTexture;
+                var cam = camera;
+                context.Capture = path => File.WriteAllBytes(path, Capture(cam, target));
+            }
+
             try
             {
-                body(session, board, animator);
+                body(context);
             }
             finally
             {
+                if (camera != null)
+                {
+                    camera.targetTexture = previousTarget;
+                }
+
+                if (renderTexture != null)
+                {
+                    UnityEngine.Object.DestroyImmediate(renderTexture);
+                }
+
+                // Leave no spawned items behind: if the scene is saved later they would be baked in.
                 BoardBuilder.ClearItems(board);
             }
-        }
-
-        /// <summary>Steps the fall animation on by a fixed number of frames.</summary>
-        internal static void Advance(FallAnimator animator, int frames)
-        {
-            if (animator == null)
-            {
-                return;
-            }
-
-            for (var i = 0; i < frames; i++)
-            {
-                animator.Tick(FrameStep);
-            }
-        }
-
-        /// <summary>
-        /// Runs a settle to completion at a fixed time step. Capped so a stuck animation reports an
-        /// error instead of hanging the editor.
-        /// </summary>
-        internal static int RunUntilSettled(FallAnimator animator, BoardCoordinator coordinator)
-        {
-            const int maxFrames = 900;
-            var frames = 0;
-
-            while (coordinator.IsResolving && frames < maxFrames)
-            {
-                animator.Tick(FrameStep);
-                frames++;
-            }
-
-            if (coordinator.IsResolving)
-            {
-                Debug.LogError($"[LevelPreview] Board never settled after {maxFrames} frames.");
-            }
-
-            return frames;
         }
 
         private static string PrepareOutputFolder()
@@ -232,7 +263,7 @@ namespace Blast.EditorTools
             RenderTexture.active = active;
 
             var png = image.EncodeToPNG();
-            Object.DestroyImmediate(image);
+            UnityEngine.Object.DestroyImmediate(image);
             return png;
         }
     }

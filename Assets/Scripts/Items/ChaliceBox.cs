@@ -46,6 +46,16 @@ namespace Blast.Items
 
         public SpriteRenderer BoxRenderer => _boxRenderer;
 
+        /// <summary>
+        /// Not yet damageable. Its two-phase rule needs chalice counting wired into the level goals,
+        /// so it is implemented together with goal tracking; until then the box behaves as an
+        /// indestructible blocker rather than pretending to be clearable.
+        /// </summary>
+        public override bool TryTakeDamage(DamageInfo damage)
+        {
+            return false;
+        }
+
         /// <summary>Shows or hides the doors to reflect the current phase.</summary>
         public void ShowPhase(Phase phase)
         {
