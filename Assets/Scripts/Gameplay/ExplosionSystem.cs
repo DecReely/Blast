@@ -5,12 +5,13 @@ using UnityEngine;
 namespace Blast.Gameplay
 {
     /// <summary>
-    /// Detonates special items and delivers the resulting damage to the board.
+    /// Runs explosions and delivers the resulting damage to the board.
     ///
     /// Chain reactions are made safe structurally rather than with flags: a special is taken off the
     /// board <em>before</em> its explosion is created, so nothing that the explosion touches
     /// afterwards can find it and trigger it a second time. That single rule is what keeps a
-    /// rocket-into-TNT-into-rocket cascade from looping forever.
+    /// rocket-into-TNT-into-rocket cascade from looping forever, and it is the same rule that lets a
+    /// combo discard its members' individual explosions.
     /// </summary>
     public sealed class ExplosionSystem
     {
@@ -32,44 +33,45 @@ namespace Blast.Gameplay
         }
 
         /// <summary>
-        /// Sets off a special item, whether the player tapped it or another explosion reached it.
-        /// Safe to call twice: the second call sees the item is no longer on the board and returns.
+        /// Sets off a single special item using its own pattern, whether the player tapped it or
+        /// another explosion reached it. Safe to call twice: the second call sees the item is no
+        /// longer on the board and returns.
         /// </summary>
         public void Detonate(SpecialItem special)
+        {
+            if (special == null || _board.GetItem(special.Origin) != special)
+            {
+                return;
+            }
+
+            var origin = special.Origin;
+
+            // Captured before the item is destroyed, since the pattern comes from the instance.
+            var pattern = special.CreateExplosionPattern();
+
+            Consume(special);
+            pattern.Detonate(origin, this);
+        }
+
+        /// <summary>
+        /// Removes a special from the board and plays its effect without exploding it. Used by combos,
+        /// which replace their members' individual explosions with one shared pattern.
+        /// </summary>
+        public void Consume(SpecialItem special)
         {
             if (special == null)
             {
                 return;
             }
 
-            var origin = special.Origin;
-            
-            if (_board.GetItem(origin) != special)
-            {
-                return;
-            }
-            
             _board.Remove(special);
-
             _effectPool.Play(special.ClearEffectPrefab, special.transform.position);
-
-            switch (special)
-            {
-                case Rocket rocket:
-                    LaunchRocketHalves(rocket, origin);
-                    break;
-
-                case Tnt tnt:
-                    DamageArea(origin, tnt.BlastRadius);
-                    break;
-            }
-
             ObjectLifetime.Destroy(special.gameObject);
         }
 
         /// <summary>
         /// Damages every cell in a square centred on <paramref name="center"/>. A radius of two is
-        /// the 5x5 area a TNT clears.
+        /// the 5x5 a TNT clears; three is the TNT-TNT combo's 7x7.
         /// </summary>
         public void DamageArea(Vector2Int center, int radius)
         {
@@ -80,6 +82,21 @@ namespace Blast.Gameplay
                     DamageCell(center + new Vector2Int(dx, dy), DamageInfo.FromExplosion());
                 }
             }
+        }
+
+        /// <summary>
+        /// Fires a rocket outwards from a cell in both directions along an axis.
+        ///
+        /// The origin cell is damaged directly, because the halves only start damaging from the next
+        /// cell on. For a lone rocket that cell is already empty, but for a combo's plus shape the
+        /// origins form the centre of the cross and must not be left untouched.
+        /// </summary>
+        public void LaunchRocketSweeps(Vector2Int origin, Rocket.Axis axis)
+        {
+            DamageCell(origin, DamageInfo.FromExplosion());
+
+            _actionRunner.Add(new RocketSweepAction(_board, this, _visuals, origin, axis, positive: true));
+            _actionRunner.Add(new RocketSweepAction(_board, this, _visuals, origin, axis, positive: false));
         }
 
         /// <summary>
@@ -108,21 +125,6 @@ namespace Blast.Gameplay
             _board.Remove(item);
             _effectPool.Play(item.ClearEffectPrefab, item.transform.position);
             ObjectLifetime.Destroy(item.gameObject);
-        }
-
-        /// <summary>
-        /// Sends the two halves off in opposite directions. Each is its own action, so they travel
-        /// and damage independently and the turn waits for both.
-        /// </summary>
-        private void LaunchRocketHalves(Rocket rocket, Vector2Int origin)
-        {
-            var step = rocket.TravelStep;
-
-            _actionRunner.Add(new RocketSweepAction(
-                _board, this, _visuals, origin, step, rocket.PositiveHalfSprite));
-
-            _actionRunner.Add(new RocketSweepAction(
-                _board, this, _visuals, origin, -step, rocket.NegativeHalfSprite));
         }
     }
 }

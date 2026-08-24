@@ -15,14 +15,15 @@ namespace Blast.Gameplay
     /// explosions play out, settle the board, refresh hints — and the "busy" gate is held for the
     /// whole of it so taps cannot interleave.
     ///
-    /// There are three kinds of tap:
-    /// a special item detonates; a group of four or more collapses into a new special; a smaller
-    /// group simply blasts. Anything else is not a move and costs nothing.
+    /// There are four kinds of tap: a run of adjacent special items merges into one combo; a lone
+    /// special detonates; a group of four or more cubes collapses into a new special; a smaller group
+    /// simply blasts. Anything else is not a move and costs nothing.
     /// </summary>
     public sealed class BoardCoordinator
     {
         private readonly Board _board;
         private readonly GroupFinder _groupFinder;
+        private readonly ComboDetector _comboDetector;
         private readonly HintController _hintController;
         private readonly MoveCounter _moveCounter;
         private readonly ParticleEffectPool _effectPool;
@@ -34,6 +35,7 @@ namespace Blast.Gameplay
         private readonly MergeAnimator _mergeAnimator;
 
         private readonly List<Vector2Int> _group = new();
+        private readonly List<SpecialItem> _specialGroup = new();
         private readonly List<FallRequest> _fallRequests = new();
         private readonly List<Transform> _mergingVisuals = new();
         private readonly HashSet<GridItem> _blastNeighbours = new();
@@ -43,6 +45,7 @@ namespace Blast.Gameplay
         public BoardCoordinator(
             Board board,
             GroupFinder groupFinder,
+            ComboDetector comboDetector,
             HintController hintController,
             MoveCounter moveCounter,
             ParticleEffectPool effectPool,
@@ -55,6 +58,7 @@ namespace Blast.Gameplay
         {
             _board = board;
             _groupFinder = groupFinder;
+            _comboDetector = comboDetector;
             _hintController = hintController;
             _moveCounter = moveCounter;
             _effectPool = effectPool;
@@ -97,8 +101,7 @@ namespace Blast.Gameplay
 
             if (_board.GetItem(cell) is SpecialItem special)
             {
-                BeginTurn(0);
-                DetonateTapped(special);
+                TapSpecial(cell, special);
                 return;
             }
 
@@ -142,27 +145,63 @@ namespace Blast.Gameplay
 
             _mergeAnimator.Play(_mergingVisuals, _board.CellToWorld(tappedCell), () =>
             {
-                foreach (var visual in _mergingVisuals)
-                {
-                    if (visual != null)
-                    {
-                        ObjectLifetime.Destroy(visual.gameObject);
-                    }
-                }
-
-                _mergingVisuals.Clear();
+                DestroyMergingVisuals();
                 _specialFactory.Create(groupSize, _board, tappedCell);
 
                 Settle();
             });
         }
 
-        private void DetonateTapped(SpecialItem special)
+        /// <summary>
+        /// A tapped special either detonates alone or, if it touches other specials, merges them all
+        /// into a single combo.
+        /// </summary>
+        private void TapSpecial(Vector2Int cell, SpecialItem special)
         {
+            var groupSize = _comboDetector.FindGroup(_board, cell, _specialGroup);
+
+            BeginTurn(0);
+
+            if (ComboRules.IsCombo(groupSize))
+            {
+                BeginCombo(cell);
+                return;
+            }
+
             _explosionSystem.Detonate(special);
 
             // Rocket sweeps and any chain they set off run over several frames.
             _actionRunner.NotifyWhenIdle(Settle);
+        }
+
+        /// <summary>
+        /// Merges a run of adjacent special items into one explosion at the tapped cell.
+        ///
+        /// Every member is taken off the board up front, before anything can explode. That is what
+        /// makes "individual explosions of special items are ignored" true by construction: once
+        /// detached they cannot be found, damaged or triggered, so no flag or suppression check is
+        /// needed. Their visuals then fly to the tapped cell and one combo pattern fires there.
+        /// </summary>
+        private void BeginCombo(Vector2Int tappedCell)
+        {
+            // Resolved before the members are consumed, because it depends on their types.
+            var pattern = ComboRules.SelectPattern(_specialGroup);
+
+            _mergingVisuals.Clear();
+
+            foreach (var member in _specialGroup)
+            {
+                _board.Remove(member);
+                _mergingVisuals.Add(member.transform);
+            }
+
+            _mergeAnimator.Play(_mergingVisuals, _board.CellToWorld(tappedCell), () =>
+            {
+                DestroyMergingVisuals();
+
+                pattern.Detonate(tappedCell, _explosionSystem);
+                _actionRunner.NotifyWhenIdle(Settle);
+            });
         }
 
         private void BeginTurn(int groupSize)
@@ -241,6 +280,20 @@ namespace Blast.Gameplay
                 _board.Remove(item);
                 _mergingVisuals.Add(item.transform);
             }
+        }
+
+        /// <summary>Disposes of the detached visuals once a merge animation has finished.</summary>
+        private void DestroyMergingVisuals()
+        {
+            foreach (var visual in _mergingVisuals)
+            {
+                if (visual != null)
+                {
+                    ObjectLifetime.Destroy(visual.gameObject);
+                }
+            }
+
+            _mergingVisuals.Clear();
         }
 
         private void RemoveAndDestroy(GridItem item)

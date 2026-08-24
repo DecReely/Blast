@@ -108,6 +108,7 @@ namespace Blast.Gameplay
             Coordinator = new BoardCoordinator(
                 _board,
                 groupFinder,
+                new ComboDetector(),
                 new HintController(groupFinder),
                 Moves,
                 _effectPool,

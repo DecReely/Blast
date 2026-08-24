@@ -21,23 +21,26 @@ namespace Blast.Gameplay
         private Vector2Int _cell;
         private float _progressIntoNextCell;
 
+        /// <param name="positive">True for the half heading right or up.</param>
         public RocketSweepAction(
             Board board,
             ExplosionSystem explosions,
             SpecialItemVisuals visuals,
             Vector2Int origin,
-            Vector2Int step,
-            Sprite halfSprite,
+            Rocket.Axis axis,
+            bool positive,
             float cellsPerSecond = 16f)
         {
             _board = board;
             _explosions = explosions;
-            _step = step;
             _cellsPerSecond = cellsPerSecond;
             _cell = origin;
 
+            var forward = axis == Rocket.Axis.Horizontal ? Vector2Int.right : Vector2Int.up;
+            _step = positive ? forward : -forward;
+
             _visual = visuals != null
-                ? visuals.SpawnRocketHalf(halfSprite, board.CellToWorld(origin))
+                ? visuals.SpawnRocketHalf(axis, positive, board.CellToWorld(origin))
                 : null;
         }
 

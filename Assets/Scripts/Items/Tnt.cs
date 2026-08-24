@@ -1,3 +1,4 @@
+using Blast.Gameplay;
 using UnityEngine;
 
 namespace Blast.Items
@@ -15,5 +16,10 @@ namespace Blast.Items
         [SerializeField] private int _blastRadius = 2;
 
         public int BlastRadius => _blastRadius;
+
+        public override IExplosionPattern CreateExplosionPattern()
+        {
+            return new AreaPattern(_blastRadius);
+        }
     }
 }

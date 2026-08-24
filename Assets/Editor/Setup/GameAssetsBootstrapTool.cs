@@ -35,7 +35,7 @@ namespace Blast.EditorTools
         private const string CubeDefaultFolder = "Assets/Art/Cubes/DefaultState";
         private const string CubeRocketFolder = "Assets/Art/Cubes/RocketState";
         private const string CubeTntFolder = "Assets/Art/Cubes/TntState";
-        private const string RocketFolder = "Assets/Art/SpecialItems/Rocket";
+        public const string RocketFolder = "Assets/Art/SpecialItems/Rocket";
         private const string ObstacleFolder = "Assets/Art/Obstacles";
 
         /// <summary>Sprite file stem per cube colour, matching the supplied art.</summary>
@@ -125,10 +125,6 @@ namespace Blast.EditorTools
                 EffectPrefabFactory.CreateDebrisBurst(
                     "RocketBurst", "Assets/Art/SpecialItems/Rocket/Particles/particle_star.png", 8);
             serialized.FindProperty("_axis").enumValueIndex = (int)axis;
-            serialized.FindProperty("_negativeHalfSprite").objectReferenceValue =
-                LoadSprite($"{RocketFolder}/{stem}_part_{(horizontal ? "left" : "bottom")}.png");
-            serialized.FindProperty("_positiveHalfSprite").objectReferenceValue =
-                LoadSprite($"{RocketFolder}/{stem}_part_{(horizontal ? "right" : "top")}.png");
             serialized.ApplyModifiedPropertiesWithoutUndo();
 
             return SavePrefab<Rocket>(root, name);

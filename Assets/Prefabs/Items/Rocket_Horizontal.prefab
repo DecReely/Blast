@@ -120,5 +120,3 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::Blast.Items.Rocket
   _clearEffectPrefab: {fileID: 3526416671927971172, guid: 28fe9d0a55527f64293d31d0a1288989, type: 3}
   _axis: 0
-  _negativeHalfSprite: {fileID: 21300000, guid: 82ba7c99a17e86644bf18f95f255dbda, type: 3}
-  _positiveHalfSprite: {fileID: 21300000, guid: 2d3c3de8f920093479c607994ec53851, type: 3}

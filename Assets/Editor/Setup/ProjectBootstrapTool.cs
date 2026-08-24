@@ -136,12 +136,7 @@ namespace Blast.EditorTools
             var mergeAnimator = new GameObject("MergeAnimator").AddComponent<MergeAnimator>();
             var actionRunner = new GameObject("BoardActions").AddComponent<BoardActionRunner>();
 
-            var specialVisualsGo = new GameObject("SpecialItemVisuals");
-            var specialVisuals = specialVisualsGo.AddComponent<SpecialItemVisuals>();
-            Wire(specialVisuals,
-                ("_rocketHalfPrefab", AssetDatabase
-                    .LoadAssetAtPath<GameObject>(GameAssetsBootstrapTool.RocketHalfPrefabPath)
-                    .GetComponent<SpriteRenderer>()));
+            var specialVisuals = CreateSpecialItemVisuals();
 
             CreateCanvas("UI");
             CreateEventSystem();
@@ -218,6 +213,42 @@ namespace Blast.EditorTools
             var boardMask = maskGo.AddComponent<BoardMask>();
 
             return (board, boardFrame, boardMask);
+        }
+
+        /// <summary>
+        /// Owns the rocket-half artwork. The sprites live here rather than on the rocket prefab
+        /// because combos fire rockets that were never board items and need the same visuals.
+        /// </summary>
+        private static SpecialItemVisuals CreateSpecialItemVisuals()
+        {
+            var go = new GameObject("SpecialItemVisuals");
+            var visuals = go.AddComponent<SpecialItemVisuals>();
+
+            var halfPrefab = AssetDatabase
+                .LoadAssetAtPath<GameObject>(GameAssetsBootstrapTool.RocketHalfPrefabPath)
+                .GetComponent<SpriteRenderer>();
+
+            const string folder = GameAssetsBootstrapTool.RocketFolder;
+
+            Wire(visuals,
+                ("_rocketHalfPrefab", halfPrefab),
+                ("_horizontalLeft", LoadSprite($"{folder}/horizontal_rocket_part_left.png")),
+                ("_horizontalRight", LoadSprite($"{folder}/horizontal_rocket_part_right.png")),
+                ("_verticalDown", LoadSprite($"{folder}/vertical_rocket_part_bottom.png")),
+                ("_verticalUp", LoadSprite($"{folder}/vertical_rocket_part_top.png")));
+
+            return visuals;
+        }
+
+        private static Sprite LoadSprite(string path)
+        {
+            var sprite = AssetDatabase.LoadAssetAtPath<Sprite>(path);
+            if (sprite == null)
+            {
+                Debug.LogError($"[ProjectBootstrap] Missing sprite: {path}");
+            }
+
+            return sprite;
         }
 
         /// <summary>

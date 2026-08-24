@@ -1,3 +1,5 @@
+using Blast.Gameplay;
+
 namespace Blast.Items
 {
     /// <summary>
@@ -12,6 +14,15 @@ namespace Blast.Items
     {
         /// <summary>Special items obey gravity just like cubes.</summary>
         public override bool CanFall => true;
+
+        /// <summary>
+        /// The explosion this item produces on its own.
+        ///
+        /// Returned as a pattern rather than executed here so that a combo can discard it entirely
+        /// and fire one shared pattern instead — which is how "individual explosions of special items
+        /// are ignored" is satisfied.
+        /// </summary>
+        public abstract IExplosionPattern CreateExplosionPattern();
 
         /// <summary>
         /// Never reached in practice: the explosion system detects a special in a damaged cell and
