@@ -3,6 +3,7 @@ using Blast.Gameplay;
 using Blast.Items;
 using Blast.Levels;
 using Blast.Motion;
+using Blast.UI;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
@@ -60,7 +61,12 @@ namespace Blast.EditorTools
         [MenuItem("Dream Games/Setup/Rebuild Scenes (destructive)")]
         public static void RebuildScenes()
         {
-            // Prefabs and data assets must exist first, because LevelScene is wired to reference them.
+            // Import settings first: the scenes reference sprites whose 9-slice borders and
+            // pixels-per-unit decide how they lay out, so building against stale settings would
+            // silently produce a scene that looks wrong.
+            ArtImportSettingsTool.Apply();
+
+            // Prefabs and data assets must exist next, because LevelScene is wired to reference them.
             GameAssetsBootstrapTool.CreateAll();
 
             BuildMainScene();
@@ -111,6 +117,7 @@ namespace Blast.EditorTools
 
             var canvas = CreateCanvas("UI");
             CreateBackground(canvas);
+            UiBootstrapTool.BuildMainMenu(canvas);
             CreateEventSystem();
 
             SaveScene(scene, MainScenePath);
@@ -138,11 +145,14 @@ namespace Blast.EditorTools
 
             var specialVisuals = CreateSpecialItemVisuals();
 
-            CreateCanvas("UI");
+            var canvas = CreateCanvas("UI");
             CreateEventSystem();
-            CreateLevelSession(
+
+            var session = CreateLevelSession(
                 board, boardFrame, boardMask, boardInput, effectPool,
                 fallAnimator, mergeAnimator, actionRunner, specialVisuals);
+
+            CreateLevelFlow(session, UiBootstrapTool.BuildLevelUi(canvas), camera);
 
             SaveScene(scene, LevelScenePath);
         }
@@ -255,7 +265,7 @@ namespace Blast.EditorTools
         /// The one object that knows about all the others. Kept separate from the board so the board
         /// itself has no opinion about which level is loaded or where levels come from.
         /// </summary>
-        private static void CreateLevelSession(
+        private static LevelSessionController CreateLevelSession(
             Board board,
             BoardFrame boardFrame,
             BoardMask boardMask,
@@ -281,13 +291,34 @@ namespace Blast.EditorTools
                 ("_mergeAnimator", mergeAnimator),
                 ("_actionRunner", actionRunner),
                 ("_specialItemVisuals", specialItemVisuals));
+
+            return controller;
+        }
+
+        /// <summary>
+        /// The bridge between the session and its interface. Kept as its own object so the session
+        /// stays unaware of the UI and the UI stays unaware of how a level is built.
+        /// </summary>
+        private static void CreateLevelFlow(
+            LevelSessionController session, UiBootstrapTool.LevelUi ui, Camera boardCamera)
+        {
+            var go = new GameObject("LevelFlow");
+            var flow = go.AddComponent<LevelFlowController>();
+
+            Wire(flow,
+                ("_session", session),
+                ("_topBar", ui.TopBar),
+                ("_failPopup", ui.FailPopup),
+                ("_winCelebration", ui.WinCelebration),
+                ("_chaliceFlight", ui.ChaliceFlight),
+                ("_boardCamera", boardCamera));
         }
 
         /// <summary>
         /// Assigns private serialized fields through <see cref="SerializedObject"/>, which is the
         /// supported way to set them from editor code without widening their access for runtime.
         /// </summary>
-        private static void Wire(Object target, params (string property, Object value)[] references)
+        internal static void Wire(Object target, params (string property, Object value)[] references)
         {
             var serialized = new SerializedObject(target);
 

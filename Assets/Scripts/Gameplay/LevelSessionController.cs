@@ -58,6 +58,15 @@ namespace Blast.Gameplay
         /// <summary>Raised once, when the level is won or lost.</summary>
         public event Action<LevelOutcome> Finished;
 
+        /// <summary>
+        /// Raised after a level has been built and its counters exist. UI subscribes to this rather
+        /// than reading the session in its own Start, which would depend on script execution order.
+        /// </summary>
+        public event Action LevelLoaded;
+
+        /// <summary>Raised when a chalice box gives up chalices, with where they came from.</summary>
+        public event Action<int, Vector3> ChalicesCollectedAt;
+
         private void Start()
         {
             LoadLevel(ResolveLevelNumber());
@@ -137,15 +146,15 @@ namespace Blast.Gameplay
             Coordinator.TurnResolved += OnTurnResolved;
             Coordinator.RefreshHints();
 
-            if (_boardInput == null)
+            if (_boardInput != null)
             {
-                return;
+                // Re-subscribing on every load, so guard against stacking duplicate handlers.
+                _boardInput.WorldTapped -= OnWorldTapped;
+                _boardInput.WorldTapped += OnWorldTapped;
+                _boardInput.AcceptsInput = true;
             }
 
-            // Re-subscribing on every load, so guard against stacking duplicate handlers.
-            _boardInput.WorldTapped -= OnWorldTapped;
-            _boardInput.WorldTapped += OnWorldTapped;
-            _boardInput.AcceptsInput = true;
+            LevelLoaded?.Invoke();
         }
 
         private void OnWorldTapped(Vector3 worldPosition)
@@ -180,6 +189,7 @@ namespace Blast.Gameplay
         private void OnChalicesCollected(int count, Vector3 worldPosition)
         {
             Goals.ReportChalices(count);
+            ChalicesCollectedAt?.Invoke(count, worldPosition);
         }
 
         private void OnDoorsDestroyed(ParticleSystem effect, Vector3 worldPosition)

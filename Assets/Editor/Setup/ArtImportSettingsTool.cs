@@ -50,6 +50,22 @@ namespace Blast.EditorTools
                 Border = new Vector4(24, 24, 24, 24)
             },
 
+            // The button art is drawn as a tall capsule but the case study's button is a wide one.
+            // 9-slicing rather than rotating keeps the bevel crisp at any size: the borders below are
+            // the measured cap heights and corner radii, so only the flat middle is ever stretched.
+            new Convention
+            {
+                PathContains = "Art/UI/Menu/button_frame",
+                PixelsPerUnit = UiPixelsPerUnit,
+                Border = new Vector4(40, 65, 40, 65)
+            },
+            new Convention
+            {
+                PathContains = "Art/UI/Menu/button",
+                PixelsPerUnit = UiPixelsPerUnit,
+                Border = new Vector4(40, 57, 40, 57)
+            },
+
             new Convention { PathContains = "Art/UI/", PixelsPerUnit = UiPixelsPerUnit },
             new Convention { PathContains = "Art/Menu/", PixelsPerUnit = UiPixelsPerUnit }
         };
