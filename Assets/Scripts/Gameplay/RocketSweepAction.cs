@@ -17,6 +17,7 @@ namespace Blast.Gameplay
         private readonly Transform _visual;
         private readonly Vector2Int _step;
         private readonly float _cellsPerSecond;
+        private readonly DamageInfo _damage;
 
         private Vector2Int _cell;
         private float _progressIntoNextCell;
@@ -29,12 +30,16 @@ namespace Blast.Gameplay
             Vector2Int origin,
             Rocket.Axis axis,
             bool positive,
+            DamageInfo damage,
             float cellsPerSecond = 16f)
         {
             _board = board;
             _explosions = explosions;
             _cellsPerSecond = cellsPerSecond;
             _cell = origin;
+
+            // Shared with the rocket's other half, so the pair reads as one damage source.
+            _damage = damage;
 
             var forward = axis == Rocket.Axis.Horizontal ? Vector2Int.right : Vector2Int.up;
             _step = positive ? forward : -forward;
@@ -61,7 +66,7 @@ namespace Blast.Gameplay
                     return false;
                 }
 
-                _explosions.DamageCell(_cell, DamageInfo.FromExplosion());
+                _explosions.DamageCell(_cell, _damage);
             }
 
             if (_visual != null)

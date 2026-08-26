@@ -166,7 +166,13 @@ namespace Blast.EditorTools
         {
             var root = NewItemRoot("Stone", out var spriteRenderer);
             spriteRenderer.sprite = LoadSprite($"{ObstacleFolder}/Stone/stone.png");
-            root.AddComponent<Stone>();
+
+            var stone = root.AddComponent<Stone>();
+            var serialized = new SerializedObject(stone);
+            serialized.FindProperty("_clearEffectPrefab").objectReferenceValue =
+                EffectPrefabFactory.CreateDebrisBurst(
+                    "StoneBreak", $"{ObstacleFolder}/Stone/Particles/particle_stone_01.png", 8);
+            serialized.ApplyModifiedPropertiesWithoutUndo();
 
             return SavePrefab<Stone>(root, "Stone");
         }
@@ -182,6 +188,9 @@ namespace Blast.EditorTools
             var vase = root.AddComponent<Vase>();
             var serialized = new SerializedObject(vase);
             serialized.FindProperty("_spriteRenderer").objectReferenceValue = spriteRenderer;
+            serialized.FindProperty("_clearEffectPrefab").objectReferenceValue =
+                EffectPrefabFactory.CreateDebrisBurst(
+                    "VaseBreak", $"{ObstacleFolder}/Vase/Particles/particle_vase_01.png", 9);
 
             // Ordered most healthy first: index 0 is undamaged, index 1 is one hit taken.
             var states = serialized.FindProperty("_healthStateSprites");
@@ -209,6 +218,21 @@ namespace Blast.EditorTools
             var serialized = new SerializedObject(chaliceBox);
             serialized.FindProperty("_boxRenderer").objectReferenceValue = box;
             serialized.FindProperty("_doorsRenderer").objectReferenceValue = doors;
+
+            // Two distinct bursts: splinters when the doors give way, and the box breaking apart when
+            // its last chalice is taken.
+            serialized.FindProperty("_doorBreakEffectPrefab").objectReferenceValue =
+                EffectPrefabFactory.CreateDebrisBurst(
+                    "ChaliceBoxDoorBreak",
+                    $"{ObstacleFolder}/ChaliceBox/Particles/DoorParticles/chalice_box_door_particle_01.png",
+                    10);
+
+            serialized.FindProperty("_clearEffectPrefab").objectReferenceValue =
+                EffectPrefabFactory.CreateDebrisBurst(
+                    "ChaliceBoxBreak",
+                    $"{ObstacleFolder}/ChaliceBox/Particles/BaseParticles/chalice_box_particle_01.png",
+                    12);
+
             serialized.ApplyModifiedPropertiesWithoutUndo();
 
             return SavePrefab<ChaliceBox>(root, "ChaliceBox");

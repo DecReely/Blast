@@ -60,11 +60,12 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: b9f509194b0df2c42a46eeef0036cd47, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Blast.Items.ChaliceBox
-  _clearEffectPrefab: {fileID: 0}
+  _clearEffectPrefab: {fileID: 5482824672100289313, guid: 421b57c06fce59c40ae5bf6f8b06a0fd, type: 3}
   _boxRenderer: {fileID: 7072005890466348011}
   _doorsRenderer: {fileID: 7018382803232211999}
   _doorHitPoints: 1
-  _chaliceHitPoints: 10
+  _chaliceCount: 10
+  _doorBreakEffectPrefab: {fileID: 7397518780724011225, guid: 2d1dce56740914f409f2af62733fad9c, type: 3}
 --- !u!1 &486827786791414633
 GameObject:
   m_ObjectHideFlags: 0

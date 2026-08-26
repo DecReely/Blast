@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using System.Text;
 using Blast.Gameplay;
 using Blast.Items;
+using Blast.Levels;
 using UnityEditor;
 using UnityEngine;
 
@@ -133,10 +134,21 @@ namespace Blast.EditorTools
         {
             var board = context.Board;
             var level = context.Session.CurrentLevel;
+            var goals = context.Session.Goals;
             var played = 0;
+
+            report.AppendLine(
+                $"  level {levelNumber} ({level.Width}x{level.Height}, {level.MoveCount} moves): " +
+                $"goals vases={goals.VasesRemaining} stones={goals.StonesRemaining} chalices={goals.ChaliceGoal}");
 
             for (var attempt = 0; attempt < turns * 25 && played < turns; attempt++)
             {
+                // Obstacles are destructible now, so a level can genuinely end mid-run.
+                if (context.Session.Outcome != LevelOutcome.InProgress)
+                {
+                    break;
+                }
+
                 var coordinator = context.Session.Coordinator;
 
                 var cell = new Vector2Int(
@@ -188,7 +200,10 @@ namespace Blast.EditorTools
                 }
             }
 
-            report.AppendLine($"  level {levelNumber}: {played} turns on a {level.Width}x{level.Height} board");
+            report.AppendLine(
+                $"    played {played} turns, outcome {context.Session.Outcome}, " +
+                $"chalices {goals.ChalicesCollected}/{goals.ChaliceGoal}, " +
+                $"vases {goals.VasesRemaining}, stones {goals.StonesRemaining}");
         }
 
         private static int CountSpecials(Board board)

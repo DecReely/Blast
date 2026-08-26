@@ -24,12 +24,16 @@ namespace Blast.Items
 
         public int MaxHitPoints => _maxHitPoints;
 
+        /// <summary>Hit points left, reported as full before the vase has taken anything.</summary>
+        public int RemainingHitPoints => _remainingHitPoints < 0 ? _maxHitPoints : _remainingHitPoints;
+
         /// <summary>
-        /// Takes one point from any source and cracks on the way.
+        /// Takes exactly one point per hit and cracks on the way.
         ///
-        /// The "at most one damage per blast" rule is enforced by the caller, which delivers a single
-        /// hit per damage source rather than one per adjacent blasted cube — so the vase itself does
-        /// not need to track which blast it came from.
+        /// Deliberately ignores <see cref="DamageInfo.Amount"/>: a blast reports how many of its cubes
+        /// touched the item, but the vase "takes no more than one damage from a single blast". Owning
+        /// that rule here rather than having the caller pre-clamp keeps it next to the rest of the
+        /// vase's behaviour, and lets the chalice box use the same figure for its own purposes.
         /// </summary>
         public override bool TryTakeDamage(DamageInfo damage)
         {
@@ -38,7 +42,7 @@ namespace Blast.Items
                 _remainingHitPoints = _maxHitPoints;
             }
 
-            _remainingHitPoints -= Mathf.Max(1, damage.Amount);
+            _remainingHitPoints--;
 
             if (_remainingHitPoints > 0)
             {

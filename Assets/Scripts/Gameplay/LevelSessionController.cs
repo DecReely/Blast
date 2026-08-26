@@ -1,3 +1,4 @@
+using System;
 using Blast.Effects;
 using Blast.Items;
 using Blast.Levels;
@@ -47,6 +48,15 @@ namespace Blast.Gameplay
 
         /// <summary>Resolves taps for the current level. Recreated on every load.</summary>
         public BoardCoordinator Coordinator { get; private set; }
+
+        /// <summary>Obstacle goals for the current level. Recreated on every load.</summary>
+        public GoalTracker Goals { get; private set; }
+
+        /// <summary>How the current attempt stands.</summary>
+        public LevelOutcome Outcome { get; private set; } = LevelOutcome.InProgress;
+
+        /// <summary>Raised once, when the level is won or lost.</summary>
+        public event Action<LevelOutcome> Finished;
 
         private void Start()
         {
@@ -119,6 +129,12 @@ namespace Blast.Gameplay
                 _fallAnimator,
                 _mergeAnimator);
 
+            Goals = new GoalTracker();
+            Goals.Initialize(_board);
+            SubscribeToChaliceBoxes();
+
+            Outcome = LevelOutcome.InProgress;
+            Coordinator.TurnResolved += OnTurnResolved;
             Coordinator.RefreshHints();
 
             if (_boardInput == null)
@@ -135,6 +151,83 @@ namespace Blast.Gameplay
         private void OnWorldTapped(Vector3 worldPosition)
         {
             Coordinator?.HandleWorldTap(worldPosition);
+        }
+
+        /// <summary>
+        /// Boxes report their own progress, since a box is destroyed the moment it is emptied and its
+        /// contribution would otherwise be lost.
+        /// </summary>
+        private void SubscribeToChaliceBoxes()
+        {
+            for (var y = 0; y < _board.Height; y++)
+            {
+                for (var x = 0; x < _board.Width; x++)
+                {
+                    var cell = new Vector2Int(x, y);
+
+                    // A box covers four cells; subscribe only at its anchor.
+                    if (_board.GetItem(cell) is not ChaliceBox box || box.Origin != cell)
+                    {
+                        continue;
+                    }
+
+                    box.ChalicesCollected += OnChalicesCollected;
+                    box.DoorsDestroyed += OnDoorsDestroyed;
+                }
+            }
+        }
+
+        private void OnChalicesCollected(int count, Vector3 worldPosition)
+        {
+            Goals.ReportChalices(count);
+        }
+
+        private void OnDoorsDestroyed(ParticleSystem effect, Vector3 worldPosition)
+        {
+            if (_effectPool != null)
+            {
+                _effectPool.Play(effect, worldPosition);
+            }
+        }
+
+        /// <summary>
+        /// Decides the level's fate once the board has settled.
+        ///
+        /// Checked after the turn fully resolves rather than the moment the last obstacle breaks,
+        /// because a rocket still in flight can clear the final goal, and because spending the last
+        /// move on a winning turn should still be a win.
+        /// </summary>
+        private void OnTurnResolved(int clearedCubes)
+        {
+            if (Outcome != LevelOutcome.InProgress)
+            {
+                return;
+            }
+
+            Goals.Refresh(_board);
+
+            if (Goals.IsComplete)
+            {
+                Finish(LevelOutcome.Won);
+                return;
+            }
+
+            if (!Moves.HasMovesLeft)
+            {
+                Finish(LevelOutcome.Failed);
+            }
+        }
+
+        private void Finish(LevelOutcome outcome)
+        {
+            Outcome = outcome;
+
+            if (_boardInput != null)
+            {
+                _boardInput.AcceptsInput = false;
+            }
+
+            Finished?.Invoke(outcome);
         }
 
         /// <summary>

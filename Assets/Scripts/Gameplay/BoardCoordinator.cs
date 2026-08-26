@@ -38,7 +38,7 @@ namespace Blast.Gameplay
         private readonly List<SpecialItem> _specialGroup = new();
         private readonly List<FallRequest> _fallRequests = new();
         private readonly List<Transform> _mergingVisuals = new();
-        private readonly HashSet<GridItem> _blastNeighbours = new();
+        private readonly Dictionary<GridItem, int> _blastNeighbours = new();
 
         private int _resolvingGroupSize;
 
@@ -214,9 +214,10 @@ namespace Blast.Gameplay
         /// <summary>
         /// Applies blast damage to the obstacles touching the group.
         ///
-        /// Collected into a set first so each obstacle is hit exactly once however many of its
-        /// neighbours went off — that is precisely the vase's "no more than one damage from a single
-        /// blast" rule, enforced here rather than inside every obstacle.
+        /// Each obstacle is hit exactly once, carrying a count of how many of the blasted cubes were
+        /// adjacent to it. Obstacles then interpret that number for themselves: a vase ignores it and
+        /// takes one, while a chalice box in its chalice phase collects one chalice per adjacent cube.
+        /// Counting here and deciding there keeps each rule with the item it belongs to.
         ///
         /// Special items are skipped on purpose: they detonate when tapped or when caught in another
         /// explosion, not merely because cubes blasted beside them.
@@ -236,13 +237,14 @@ namespace Blast.Gameplay
                         continue;
                     }
 
-                    _blastNeighbours.Add(neighbour);
+                    _blastNeighbours.TryGetValue(neighbour, out var adjacentCubes);
+                    _blastNeighbours[neighbour] = adjacentCubes + 1;
                 }
             }
 
-            foreach (var item in _blastNeighbours)
+            foreach (var (item, adjacentCubes) in _blastNeighbours)
             {
-                if (item.TryTakeDamage(DamageInfo.FromBlast()))
+                if (item.TryTakeDamage(DamageInfo.FromBlast(adjacentCubes)))
                 {
                     RemoveAndDestroy(item);
                 }

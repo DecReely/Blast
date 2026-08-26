@@ -75,11 +75,15 @@ namespace Blast.Gameplay
         /// </summary>
         public void DamageArea(Vector2Int center, int radius)
         {
+            // One source for the whole blast: a multi-cell item must see this as a single explosion
+            // covering several of its cells, not as several separate explosions.
+            var damage = DamageInfo.FromExplosion();
+
             for (var dx = -radius; dx <= radius; dx++)
             {
                 for (var dy = -radius; dy <= radius; dy++)
                 {
-                    DamageCell(center + new Vector2Int(dx, dy), DamageInfo.FromExplosion());
+                    DamageCell(center + new Vector2Int(dx, dy), damage);
                 }
             }
         }
@@ -93,10 +97,15 @@ namespace Blast.Gameplay
         /// </summary>
         public void LaunchRocketSweeps(Vector2Int origin, Rocket.Axis axis)
         {
-            DamageCell(origin, DamageInfo.FromExplosion());
+            // Both halves and the origin share one source, so the whole rocket counts as a single
+            // damage source: the chalice box's doors take one damage from it however many of its
+            // cells the rocket crosses, while in its chalice phase the crossings accumulate.
+            var damage = DamageInfo.FromExplosion();
 
-            _actionRunner.Add(new RocketSweepAction(_board, this, _visuals, origin, axis, positive: true));
-            _actionRunner.Add(new RocketSweepAction(_board, this, _visuals, origin, axis, positive: false));
+            DamageCell(origin, damage);
+
+            _actionRunner.Add(new RocketSweepAction(_board, this, _visuals, origin, axis, positive: true, damage));
+            _actionRunner.Add(new RocketSweepAction(_board, this, _visuals, origin, axis, positive: false, damage));
         }
 
         /// <summary>
