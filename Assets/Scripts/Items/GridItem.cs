@@ -17,6 +17,10 @@ namespace Blast.Items
         [Tooltip("Particle burst played where the item stood when it is cleared from the board.")]
         [SerializeField] private ParticleSystem _clearEffectPrefab;
 
+        [Tooltip("Particle burst played when the item is hurt but survives. Optional: items that " +
+                 "are always cleared in one hit leave this empty.")]
+        [SerializeField] private ParticleSystem _damageEffectPrefab;
+
         private SortingGroup _sortingGroup;
 
         /// <summary>
@@ -25,6 +29,12 @@ namespace Blast.Items
         /// change anywhere else.
         /// </summary>
         public ParticleSystem ClearEffectPrefab => _clearEffectPrefab;
+
+        /// <summary>
+        /// The effect to play when this item survives a hit. Null for anything that never has a
+        /// damaged state, which the effect pool treats as "nothing to play".
+        /// </summary>
+        public ParticleSystem DamageEffectPrefab => _damageEffectPrefab;
 
         /// <summary>
         /// Bottom-left cell this item occupies. Written by the board; mirrored here purely so the
@@ -44,12 +54,12 @@ namespace Blast.Items
         public abstract bool CanFall { get; }
 
         /// <summary>
-        /// Applies one hit and reports whether the item is now finished and should be removed.
+        /// Applies one hit and reports what it did.
         ///
         /// Abstract rather than virtual on purpose: every item type has a genuinely different rule,
         /// and forcing each to state it prevents a new type from silently inheriting "immune".
         /// </summary>
-        public abstract bool TryTakeDamage(DamageInfo damage);
+        public abstract DamageResult ApplyDamage(DamageInfo damage);
 
         protected virtual void Awake()
         {

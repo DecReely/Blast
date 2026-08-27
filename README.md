@@ -42,7 +42,28 @@ BoardInput ──world position──▶ BoardCoordinator
 `BoardCoordinator` is the only place that decides what a tap means, and it holds a "resolving" gate
 for the whole turn so taps cannot interleave with an explosion or a fall.
 
+## Tests
+
+Open **Window ▸ General ▸ Test Runner** and run the EditMode suite, or from the command line:
+
+```
+Unity.exe -batchmode -runTests -projectPath . -testPlatform EditMode -testResults results.xml
+```
+
+`Blast.Tests.Editor` holds two kinds of test. `GameRuleTests` covers the pure functions — the
+group-size thresholds and the chalice shelf split — and runs in milliseconds. `GameplayVerificationTests`
+is the integration layer: each test opens `LevelScene`, plants a board and plays real turns through
+the real coordinator. That works outside play mode because every time-based system exposes a
+`Tick(delta)` which `SceneTicker` drives at a fixed 1/60, making a whole turn reproducible.
+
+The suites are shared with the **Dream Games ▸ Debug** menu rather than duplicated: each returns a
+`VerificationReport` that the tests assert on and the menu items log, so a check cannot pass in one
+and fail in the other. `EveryLevelReachesAnOutcome` is `[Explicit]` because it plays fifty levels.
+
 ## Project layout
+
+Three assemblies, so the test assembly has something to reference — assembly definitions cannot
+reference the predefined `Assembly-CSharp`.
 
 ```
 Assets/
@@ -50,7 +71,8 @@ Assets/
   Data/Levels/       level_01.json … level_10.json
   Prefabs/           generated item and effect prefabs
   Scenes/            MainScene, LevelScene
-  Scripts/
+  Input/             the shared input actions asset
+  Scripts/           Blast.Runtime
     Levels/          level parsing, the level database, persisted progress
     Gameplay/        board model, turn flow, gravity, explosions, goals
     Gameplay/Explosions/   the explosion shapes
@@ -58,9 +80,10 @@ Assets/
     Motion/          hand-coded fall and merge animation
     Effects/         pooled particle playback
     UI/              menu, top bar, popup, celebration, flow control
-  Editor/
+  Editor/            Blast.Editor
     Setup/           reproducible project, asset and scene generation
     Debugging/       offscreen preview and verification tooling
+  Tests/Editor/      Blast.Tests.Editor
 ```
 
 ## Design notes

@@ -1,5 +1,4 @@
 using System.Collections.Generic;
-using System.Text;
 using Blast.Gameplay;
 using Blast.Items;
 using Blast.Levels;
@@ -84,8 +83,14 @@ namespace Blast.EditorTools
         [MenuItem("Dream Games/Debug/Run Board Stress Test")]
         public static void RunStressTest()
         {
+            RunChecks().Log();
+        }
+
+        public static VerificationReport RunChecks()
+        {
             const int turnsPerLevel = 15;
-            var report = new StringBuilder();
+
+            var report = new VerificationReport("Board stress test");
             var totals = new Totals();
 
             LevelPreviewTool.RunHeadless(context =>
@@ -101,19 +106,13 @@ namespace Blast.EditorTools
                 }
             });
 
-            var summary =
-                $"Board stress test: {totals.Turns} turns " +
-                $"({totals.Blasts} blasts, {totals.SpecialsCreated} specials created, " +
-                $"{totals.Detonations} detonations), {totals.Violations} violations.\n{report}";
+            report.Check(
+                "A settled board never floats an item or leaves a reachable cell empty",
+                totals.Violations == 0,
+                $"{totals.Turns} turns — {totals.Blasts} blasts, {totals.SpecialsCreated} specials " +
+                $"created, {totals.Detonations} detonations — with {totals.Violations} violations");
 
-            if (totals.Violations == 0)
-            {
-                Debug.Log(summary);
-            }
-            else
-            {
-                Debug.LogError(summary);
-            }
+            return report;
         }
 
         private sealed class Totals
@@ -129,7 +128,7 @@ namespace Blast.EditorTools
             LevelPreviewTool.Context context,
             int levelNumber,
             int turns,
-            StringBuilder report,
+            VerificationReport report,
             Totals totals)
         {
             var board = context.Board;
@@ -137,8 +136,8 @@ namespace Blast.EditorTools
             var goals = context.Session.Goals;
             var played = 0;
 
-            report.AppendLine(
-                $"  level {levelNumber} ({level.Width}x{level.Height}, {level.MoveCount} moves): " +
+            report.Note(
+                $"level {levelNumber} ({level.Width}x{level.Height}, {level.MoveCount} moves): " +
                 $"goals vases={goals.VasesRemaining} stones={goals.StonesRemaining} chalices={goals.ChaliceGoal}");
 
             for (var attempt = 0; attempt < turns * 25 && played < turns; attempt++)
@@ -193,15 +192,15 @@ namespace Blast.EditorTools
                 }
 
                 totals.Violations += violations.Count;
-                report.AppendLine($"  level {levelNumber}, turn {played} at {cell}:");
+
                 foreach (var violation in violations)
                 {
-                    report.AppendLine($"    {violation}");
+                    report.Check($"level {levelNumber}, turn {played} at {cell}", false, violation);
                 }
             }
 
-            report.AppendLine(
-                $"    played {played} turns, outcome {context.Session.Outcome}, " +
+            report.Note(
+                $"  played {played} turns, outcome {context.Session.Outcome}, " +
                 $"chalices {goals.ChalicesCollected}/{goals.ChaliceGoal}, " +
                 $"vases {goals.VasesRemaining}, stones {goals.StonesRemaining}");
         }

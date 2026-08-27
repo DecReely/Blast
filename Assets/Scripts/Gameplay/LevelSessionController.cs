@@ -136,7 +136,8 @@ namespace Blast.Gameplay
                 _actionRunner,
                 new SpecialItemFactory(_itemCatalog),
                 _fallAnimator,
-                _mergeAnimator);
+                _mergeAnimator,
+                _specialItemVisuals);
 
             Goals = new GoalTracker();
             Goals.Initialize(_board);
@@ -181,7 +182,7 @@ namespace Blast.Gameplay
                     }
 
                     box.ChalicesCollected += OnChalicesCollected;
-                    box.DoorsDestroyed += OnDoorsDestroyed;
+                    box.EffectRequested += OnBoxEffectRequested;
                 }
             }
         }
@@ -192,7 +193,11 @@ namespace Blast.Gameplay
             ChalicesCollectedAt?.Invoke(count, worldPosition);
         }
 
-        private void OnDoorsDestroyed(ParticleSystem effect, Vector3 worldPosition)
+        /// <summary>
+        /// Plays an effect a box asked for. Routed through the pool here rather than by the box
+        /// itself, so items never instantiate their own particle systems.
+        /// </summary>
+        private void OnBoxEffectRequested(ParticleSystem effect, Vector3 worldPosition)
         {
             if (_effectPool != null)
             {

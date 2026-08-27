@@ -26,11 +26,17 @@ namespace Blast.Items
             Chalices
         }
 
+        /// <summary>Sentinel for "not started yet"; see <see cref="Vase"/> for why this is lazy.</summary>
+        private const int Uninitialised = -1;
+
         [Header("Renderers")]
         [SerializeField] private SpriteRenderer _boxRenderer;
 
         [Tooltip("Hidden once the doors are destroyed.")]
         [SerializeField] private SpriteRenderer _doorsRenderer;
+
+        [Tooltip("Draws the chalices the box still holds, revealed when the doors break.")]
+        [SerializeField] private ChaliceShelfView _shelfView;
 
         [Header("Health")]
         [Tooltip("Damage sources needed to destroy the doors.")]
@@ -43,7 +49,10 @@ namespace Blast.Items
         [Tooltip("Played when the doors are destroyed.")]
         [SerializeField] private ParticleSystem _doorBreakEffectPrefab;
 
-        private int _doorHitPointsRemaining = -1;
+        [Tooltip("Played at the box each time chalices are taken from it.")]
+        [SerializeField] private ParticleSystem _chaliceCollectEffectPrefab;
+
+        private int _doorHitPointsRemaining = Uninitialised;
         private int _chalicesRemaining;
 
         /// <summary>Source of the hit currently being applied, so repeat cells can be recognised.</summary>
@@ -56,10 +65,13 @@ namespace Blast.Items
         public event Action<int, Vector3> ChalicesCollected;
 
         /// <summary>
-        /// Raised when the doors break. Exposed rather than played here so effects stay pooled in one
-        /// place instead of each item instantiating its own.
+        /// Raised when the box wants a one-shot effect played at a world position.
+        ///
+        /// Exposed rather than played here so effects stay pooled in one place instead of each item
+        /// instantiating its own. One event rather than one per occasion, so another moment worth a
+        /// burst needs no new wiring.
         /// </summary>
-        public event Action<ParticleSystem, Vector3> DoorsDestroyed;
+        public event Action<ParticleSystem, Vector3> EffectRequested;
 
         /// <summary>Occupies a 2x2 block anchored at its bottom-left cell.</summary>
         public override Vector2Int Size => new(2, 2);
@@ -68,14 +80,15 @@ namespace Blast.Items
         public override bool CanFall => false;
 
         /// <summary>Chalices this box still holds, counting the door phase as none collected yet.</summary>
-        public int ChalicesRemaining => _doorHitPointsRemaining == -1 ? _chaliceCount : _chalicesRemaining;
+        public int ChalicesRemaining =>
+            _doorHitPointsRemaining == Uninitialised ? _chaliceCount : _chalicesRemaining;
 
         /// <summary>Total chalices this box contributes to the level goal.</summary>
         public int ChaliceCount => _chaliceCount;
 
         public ParticleSystem DoorBreakEffectPrefab => _doorBreakEffectPrefab;
 
-        public override bool TryTakeDamage(DamageInfo damage)
+        public override DamageResult ApplyDamage(DamageInfo damage)
         {
             EnsureInitialised();
 
@@ -86,7 +99,7 @@ namespace Blast.Items
             }
             else if (_currentSourceSpent)
             {
-                return false;
+                return DamageResult.Ignored;
             }
 
             return _doorHitPointsRemaining > 0
@@ -101,54 +114,85 @@ namespace Blast.Items
             {
                 _doorsRenderer.enabled = phase == Phase.Doors;
             }
+
+            RefreshShelves();
+        }
+
+        protected override void Awake()
+        {
+            base.Awake();
+
+            // Play mode only. The editor verification tools never reach Awake, which is why the
+            // same call is repeated lazily on the damage path.
+            EnsureInitialised();
         }
 
         /// <summary>
         /// One damage per source, whatever it covered. A source that breaks the doors is spent on
         /// them and does not go on to collect chalices in the same hit.
         /// </summary>
-        private bool DamageDoors()
+        private DamageResult DamageDoors()
         {
             _currentSourceSpent = true;
             _doorHitPointsRemaining--;
 
             if (_doorHitPointsRemaining > 0)
             {
-                return false;
+                return DamageResult.Damaged;
             }
 
             ShowPhase(Phase.Chalices);
-            DoorsDestroyed?.Invoke(_doorBreakEffectPrefab, transform.position);
-            return false;
+            EffectRequested?.Invoke(_doorBreakEffectPrefab, transform.position);
+
+            return DamageResult.Damaged;
         }
 
         /// <summary>
         /// Each hit collects chalices. Explosions arrive one call per covered cell so they accumulate
         /// naturally; a blast arrives once carrying its adjacent cube count.
         /// </summary>
-        private bool CollectChalices(DamageInfo damage)
+        private DamageResult CollectChalices(DamageInfo damage)
         {
             var collected = Mathf.Clamp(damage.Amount, 1, _chalicesRemaining);
             if (collected <= 0)
             {
-                return true;
+                return DamageResult.Destroyed;
             }
 
             _chalicesRemaining -= collected;
-            ChalicesCollected?.Invoke(collected, transform.position);
 
-            return _chalicesRemaining <= 0;
+            ChalicesCollected?.Invoke(collected, transform.position);
+            EffectRequested?.Invoke(_chaliceCollectEffectPrefab, transform.position);
+
+            if (_chalicesRemaining <= 0)
+            {
+                return DamageResult.Destroyed;
+            }
+
+            RefreshShelves();
+            return DamageResult.Damaged;
+        }
+
+        /// <summary>Brings the shelf artwork in line with how much the box still holds.</summary>
+        private void RefreshShelves()
+        {
+            if (_shelfView != null)
+            {
+                _shelfView.Show(ChalicesRemaining);
+            }
         }
 
         private void EnsureInitialised()
         {
-            if (_doorHitPointsRemaining >= 0)
+            if (_doorHitPointsRemaining != Uninitialised)
             {
                 return;
             }
 
             _doorHitPointsRemaining = Mathf.Max(1, _doorHitPoints);
             _chalicesRemaining = Mathf.Max(1, _chaliceCount);
+
+            RefreshShelves();
         }
     }
 }

@@ -17,7 +17,17 @@ namespace Blast.Items
         [Tooltip("Artwork per remaining hit point, most healthy first.")]
         [SerializeField] private Sprite[] _healthStateSprites;
 
-        private int _remainingHitPoints = -1;
+        /// <summary>
+        /// "Not started yet", resolved to <see cref="_maxHitPoints"/> on first use.
+        ///
+        /// A field initializer cannot be used because it runs before Unity deserializes the value
+        /// authored on the prefab, and <c>Awake</c> cannot be used because the editor verification
+        /// tools damage items outside play mode, where it never runs. A sentinel resolved lazily is
+        /// correct in both cases; the chalice box does the same for the same reason.
+        /// </summary>
+        private const int Uninitialised = -1;
+
+        private int _remainingHitPoints = Uninitialised;
 
         /// <summary>Unlike the other obstacles, a vase obeys gravity.</summary>
         public override bool CanFall => true;
@@ -25,7 +35,8 @@ namespace Blast.Items
         public int MaxHitPoints => _maxHitPoints;
 
         /// <summary>Hit points left, reported as full before the vase has taken anything.</summary>
-        public int RemainingHitPoints => _remainingHitPoints < 0 ? _maxHitPoints : _remainingHitPoints;
+        public int RemainingHitPoints =>
+            _remainingHitPoints == Uninitialised ? _maxHitPoints : _remainingHitPoints;
 
         /// <summary>
         /// Takes exactly one point per hit and cracks on the way.
@@ -35,22 +46,22 @@ namespace Blast.Items
         /// that rule here rather than having the caller pre-clamp keeps it next to the rest of the
         /// vase's behaviour, and lets the chalice box use the same figure for its own purposes.
         /// </summary>
-        public override bool TryTakeDamage(DamageInfo damage)
+        public override DamageResult ApplyDamage(DamageInfo damage)
         {
-            if (_remainingHitPoints < 0)
+            if (_remainingHitPoints == Uninitialised)
             {
                 _remainingHitPoints = _maxHitPoints;
             }
 
             _remainingHitPoints--;
 
-            if (_remainingHitPoints > 0)
+            if (_remainingHitPoints <= 0)
             {
-                ShowHealthState(_remainingHitPoints);
-                return false;
+                return DamageResult.Destroyed;
             }
 
-            return true;
+            ShowHealthState(_remainingHitPoints);
+            return DamageResult.Damaged;
         }
 
         /// <summary>

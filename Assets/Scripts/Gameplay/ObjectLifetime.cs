@@ -27,5 +27,29 @@ namespace Blast.Gameplay
                 Object.DestroyImmediate(target);
             }
         }
+
+        /// <summary>
+        /// Destroys after a delay, for something that has been detached and left to finish — a
+        /// released particle trail, for instance.
+        ///
+        /// Outside play mode the delay is dropped rather than honoured: no frames pass, so a delayed
+        /// destroy would never fire and the object would be left sitting in the scene.
+        /// </summary>
+        public static void Destroy(GameObject target, float delaySeconds)
+        {
+            if (target == null)
+            {
+                return;
+            }
+
+            if (Application.isPlaying)
+            {
+                Object.Destroy(target, delaySeconds);
+            }
+            else
+            {
+                Object.DestroyImmediate(target);
+            }
+        }
     }
 }

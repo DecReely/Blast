@@ -1,4 +1,3 @@
-using System.Text;
 using Blast.Gameplay;
 using Blast.Items;
 using Blast.Levels;
@@ -21,43 +20,39 @@ namespace Blast.EditorTools
         [MenuItem("Dream Games/Debug/Verify Edge Cases")]
         public static void Verify()
         {
+            RunChecks().Log();
+        }
+
+        public static VerificationReport RunChecks()
+        {
+            var report = new VerificationReport("Edge case verification");
+
             var catalog = BoardScratchpad.LoadCatalog();
             if (catalog == null)
             {
-                return;
+                report.Check("Item catalog is available", false);
+                return report;
             }
-
-            var report = new StringBuilder();
-            var failures = 0;
 
             LevelPreviewTool.RunHeadless(context =>
             {
-                failures += CheckTapDuringResolveIsIgnored(context, catalog, report);
-                failures += CheckNonMoveTapsCostNothing(context, catalog, report);
-                failures += CheckLossHappensOnlyAtZeroMoves(context, catalog, report);
-                failures += CheckWinOnTheLastMove(context, catalog, report);
-                failures += CheckMultiBoxChaliceGoal(context, report);
-                failures += CheckNoDeadlockAfterRefill(context, report);
+                CheckTapDuringResolveIsIgnored(context, catalog, report);
+                CheckNonMoveTapsCostNothing(context, catalog, report);
+                CheckLossHappensOnlyAtZeroMoves(context, catalog, report);
+                CheckWinOnTheLastMove(context, catalog, report);
+                CheckMultiBoxChaliceGoal(context, report);
+                CheckNoDeadlockAfterRefill(context, report);
             });
 
-            var summary = $"Edge case verification:\n{report}";
-
-            if (failures == 0)
-            {
-                Debug.Log(summary);
-            }
-            else
-            {
-                Debug.LogError($"{summary}\n{failures} failure(s).");
-            }
+            return report;
         }
 
         /// <summary>
         /// A tap arriving while the board is still exploding or falling must be dropped entirely, not
         /// queued: it would otherwise spend a move against a board the player never saw.
         /// </summary>
-        private static int CheckTapDuringResolveIsIgnored(
-            LevelPreviewTool.Context context, ItemCatalog catalog, StringBuilder report)
+        private static void CheckTapDuringResolveIsIgnored(
+            LevelPreviewTool.Context context, ItemCatalog catalog, VerificationReport report)
         {
             context.Session.LoadLevel(1);
 
@@ -86,20 +81,18 @@ namespace Blast.EditorTools
             var movesAfterInterrupt = context.Session.Moves.Remaining;
             context.Ticker.RunUntilIdle(coordinator);
 
-            var passed = resolving && movesAfterInterrupt == movesMidTurn;
-            report.AppendLine(
-                $"  {(passed ? "PASS" : "FAIL")} A tap during a resolving turn is ignored " +
-                $"(resolving {resolving}, moves {movesMidTurn} -> {movesAfterInterrupt})");
-
-            return passed ? 0 : 1;
+            report.Check(
+                "A tap during a resolving turn is ignored",
+                resolving && movesAfterInterrupt == movesMidTurn,
+                $"resolving {resolving}, moves {movesMidTurn} -> {movesAfterInterrupt}");
         }
 
         /// <summary>
         /// Only a blastable group or a special is a move. Tapping anything else must leave the move
         /// count alone, which is the difference between a forgiving game and a frustrating one.
         /// </summary>
-        private static int CheckNonMoveTapsCostNothing(
-            LevelPreviewTool.Context context, ItemCatalog catalog, StringBuilder report)
+        private static void CheckNonMoveTapsCostNothing(
+            LevelPreviewTool.Context context, ItemCatalog catalog, VerificationReport report)
         {
             context.Session.LoadLevel(1);
 
@@ -112,19 +105,16 @@ namespace Blast.EditorTools
             BoardScratchpad.Place(board, catalog, BoardScratchpad.StoneCode, new Vector2Int(2, 0));
 
             var before = context.Session.Moves.Remaining;
-            var failures = 0;
 
-            failures += ExpectNoMove(context, report, "a lone cube", new Vector2Int(0, 0), before);
-            failures += ExpectNoMove(context, report, "a stone", new Vector2Int(2, 0), before);
-            failures += ExpectNoMove(context, report, "an empty cell", new Vector2Int(5, 5), before);
-            failures += ExpectNoMove(context, report, "outside the board", new Vector2Int(-1, -1), before);
-
-            return failures;
+            ExpectNoMove(context, report, "a lone cube", new Vector2Int(0, 0), before);
+            ExpectNoMove(context, report, "a stone", new Vector2Int(2, 0), before);
+            ExpectNoMove(context, report, "an empty cell", new Vector2Int(5, 5), before);
+            ExpectNoMove(context, report, "outside the board", new Vector2Int(-1, -1), before);
         }
 
-        private static int ExpectNoMove(
+        private static void ExpectNoMove(
             LevelPreviewTool.Context context,
-            StringBuilder report,
+            VerificationReport report,
             string what,
             Vector2Int cell,
             int expectedMoves)
@@ -134,21 +124,19 @@ namespace Blast.EditorTools
             coordinator.HandleWorldTap(context.Board.CellToWorld(cell));
 
             var remaining = context.Session.Moves.Remaining;
-            var passed = remaining == expectedMoves && !coordinator.IsResolving;
 
-            report.AppendLine(
-                $"  {(passed ? "PASS" : "FAIL")} Tapping {what} is not a move " +
-                $"(moves {remaining}, expected {expectedMoves})");
-
-            return passed ? 0 : 1;
+            report.Check(
+                $"Tapping {what} is not a move",
+                remaining == expectedMoves && !coordinator.IsResolving,
+                $"moves {remaining}, expected {expectedMoves}");
         }
 
         /// <summary>
         /// Spending the second-to-last move must not end the level, and spending the last one must.
         /// Both halves matter: an off-by-one either steals a move or hands out a free one.
         /// </summary>
-        private static int CheckLossHappensOnlyAtZeroMoves(
-            LevelPreviewTool.Context context, ItemCatalog catalog, StringBuilder report)
+        private static void CheckLossHappensOnlyAtZeroMoves(
+            LevelPreviewTool.Context context, ItemCatalog catalog, VerificationReport report)
         {
             context.Session.LoadLevel(1);
 
@@ -167,25 +155,21 @@ namespace Blast.EditorTools
             BoardScratchpad.Place(board, catalog, BoardScratchpad.StoneCode, new Vector2Int(0, 0));
             context.Session.Goals.Initialize(board);
 
-            var failures = 0;
-
             PlantAndBlastPair(context, catalog, new Vector2Int(0, 4));
-            failures += Expect(report, "Second-to-last move does not end the level",
+            report.Expect("Second-to-last move does not end the level",
                 context.Session.Outcome, LevelOutcome.InProgress);
 
             PlantAndBlastPair(context, catalog, new Vector2Int(0, 4));
-            failures += Expect(report, "The level fails exactly when the last move is spent",
+            report.Expect("The level fails exactly when the last move is spent",
                 context.Session.Outcome, LevelOutcome.Failed);
-
-            return failures;
         }
 
         /// <summary>
         /// Clearing the final obstacle with the final move is a win, not a loss. The check has to run
         /// after the board settles, because a rocket still in flight can clear the last goal.
         /// </summary>
-        private static int CheckWinOnTheLastMove(
-            LevelPreviewTool.Context context, ItemCatalog catalog, StringBuilder report)
+        private static void CheckWinOnTheLastMove(
+            LevelPreviewTool.Context context, ItemCatalog catalog, VerificationReport report)
         {
             context.Session.LoadLevel(1);
 
@@ -207,23 +191,20 @@ namespace Blast.EditorTools
             context.Session.Coordinator.HandleWorldTap(board.CellToWorld(new Vector2Int(1, 0)));
             context.Ticker.RunUntilIdle(context.Session.Coordinator);
 
-            var failures = Expect(report, "Winning on the last move counts as a win",
+            report.Expect("Winning on the last move counts as a win",
                 context.Session.Outcome, LevelOutcome.Won);
 
-            failures += Expect(report, "  and the move counter really was at zero",
+            report.Expect("  and the move counter really was at zero",
                 moves.Remaining, 0);
-
-            return failures;
         }
 
         /// <summary>
         /// Levels 3 and 9 place four boxes and nothing else. The goal has to scale with them, or three
         /// of the four would be decorative and the level would be winnable without touching them.
         /// </summary>
-        private static int CheckMultiBoxChaliceGoal(LevelPreviewTool.Context context, StringBuilder report)
+        private static void CheckMultiBoxChaliceGoal(
+            LevelPreviewTool.Context context, VerificationReport report)
         {
-            var failures = 0;
-
             foreach (var levelNumber in new[] { 3, 9 })
             {
                 context.Session.LoadLevel(levelNumber);
@@ -231,14 +212,11 @@ namespace Blast.EditorTools
                 var boxes = CountChaliceBoxes(context.Board);
                 var goal = context.Session.Goals.ChaliceGoal;
 
-                failures += Expect(
-                    report,
+                report.Expect(
                     $"Level {levelNumber}: every one of its {boxes} boxes counts towards the goal",
                     goal,
                     boxes * 10);
             }
-
-            return failures;
         }
 
         private static int CountChaliceBoxes(Board board)
@@ -267,7 +245,8 @@ namespace Blast.EditorTools
         /// board with no blastable pair and no special, the level would be stuck without being lost —
         /// the one failure state the flow has no answer for.
         /// </summary>
-        private static int CheckNoDeadlockAfterRefill(LevelPreviewTool.Context context, StringBuilder report)
+        private static void CheckNoDeadlockAfterRefill(
+            LevelPreviewTool.Context context, VerificationReport report)
         {
             const int turnsPerLevel = 12;
 
@@ -295,7 +274,7 @@ namespace Blast.EditorTools
                     if (options.Count == 0)
                     {
                         deadlocks++;
-                        report.AppendLine($"    level {levelNumber} turn {turn}: no legal tap available");
+                        report.Note($"  level {levelNumber} turn {turn}: no legal tap available");
                         break;
                     }
 
@@ -306,12 +285,10 @@ namespace Blast.EditorTools
                 }
             }
 
-            var passed = deadlocks == 0;
-            report.AppendLine(
-                $"  {(passed ? "PASS" : "FAIL")} A settled board always offers a legal tap " +
-                $"({turns} turns across 10 levels, {deadlocks} deadlocks)");
-
-            return passed ? 0 : 1;
+            report.Check(
+                "A settled board always offers a legal tap",
+                deadlocks == 0,
+                $"{turns} turns across 10 levels, {deadlocks} deadlocks");
         }
 
         /// <summary>Blasts a freshly planted pair, which is always a legal move and never a win.</summary>
@@ -323,13 +300,6 @@ namespace Blast.EditorTools
 
             context.Session.Coordinator.HandleWorldTap(context.Board.CellToWorld(at));
             context.Ticker.RunUntilIdle(context.Session.Coordinator);
-        }
-
-        private static int Expect<T>(StringBuilder report, string name, T actual, T expected)
-        {
-            var passed = Equals(actual, expected);
-            report.AppendLine($"  {(passed ? "PASS" : "FAIL")} {name} (was {actual}, expected {expected})");
-            return passed ? 0 : 1;
         }
     }
 }

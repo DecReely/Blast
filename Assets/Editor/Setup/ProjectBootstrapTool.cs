@@ -8,6 +8,7 @@ using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
 using UnityEngine.EventSystems;
+using UnityEngine.InputSystem;
 using UnityEngine.InputSystem.UI;
 using UnityEngine.SceneManagement;
 using UnityEngine.UI;
@@ -28,6 +29,12 @@ namespace Blast.EditorTools
 
         private const string MenuBackgroundPath = "Assets/Art/Menu/background.png";
         private const string BoardFramePath = "Assets/Art/UI/Gameplay/grid_background.png";
+        private const string InputActionsPath = "Assets/Input/InputSystem_Actions.inputactions";
+
+        /// <summary>Actions <see cref="BoardInput"/> reads, by name in the shared input asset.</summary>
+        private const string TapActionName = "Click";
+
+        private const string PointerActionName = "Point";
 
         /// <summary>Portrait 9:16 reference resolution used by every Canvas scaler.</summary>
         private static readonly Vector2 ReferenceResolution = new(1080f, 1920f);
@@ -134,7 +141,10 @@ namespace Blast.EditorTools
 
             // Input lives on the camera because a tap is only meaningful once unprojected through it.
             var boardInput = camera.gameObject.AddComponent<BoardInput>();
-            Wire(boardInput, ("_camera", camera));
+            Wire(boardInput,
+                ("_camera", camera),
+                ("_pressAction", LoadInputAction(TapActionName)),
+                ("_pointerPosition", LoadInputAction(PointerActionName)));
 
             var (board, boardFrame, boardMask) = CreateBoardRoot();
 
@@ -226,39 +236,66 @@ namespace Blast.EditorTools
         }
 
         /// <summary>
-        /// Owns the rocket-half artwork. The sprites live here rather than on the rocket prefab
-        /// because combos fire rockets that were never board items and need the same visuals.
+        /// Owns the presentation that belongs to a moment rather than to an item: the rocket half
+        /// prefab, the combo blast and the puff a new special arrives in. Combos fire rockets that
+        /// were never board items, so none of this can hang off an instance.
+        ///
+        /// The half's own artwork is not wired here — it lives on the half prefab itself.
         /// </summary>
         private static SpecialItemVisuals CreateSpecialItemVisuals()
         {
             var go = new GameObject("SpecialItemVisuals");
             var visuals = go.AddComponent<SpecialItemVisuals>();
 
-            var halfPrefab = AssetDatabase
-                .LoadAssetAtPath<GameObject>(GameAssetsBootstrapTool.RocketHalfPrefabPath)
-                .GetComponent<SpriteRenderer>();
-
-            const string folder = GameAssetsBootstrapTool.RocketFolder;
-
             Wire(visuals,
-                ("_rocketHalfPrefab", halfPrefab),
-                ("_horizontalLeft", LoadSprite($"{folder}/horizontal_rocket_part_left.png")),
-                ("_horizontalRight", LoadSprite($"{folder}/horizontal_rocket_part_right.png")),
-                ("_verticalDown", LoadSprite($"{folder}/vertical_rocket_part_bottom.png")),
-                ("_verticalUp", LoadSprite($"{folder}/vertical_rocket_part_top.png")));
+                ("_rocketHalfPrefab", LoadComponent<RocketHalfView>(GameAssetsBootstrapTool.RocketHalfPrefabPath)),
+                ("_comboEffectPrefab",
+                    LoadComponent<ParticleSystem>(GameAssetsBootstrapTool.ComboEffectPrefabPath)),
+                ("_specialCreatedEffectPrefab",
+                    LoadComponent<ParticleSystem>(GameAssetsBootstrapTool.SpecialCreatedEffectPrefabPath)));
 
             return visuals;
         }
 
-        private static Sprite LoadSprite(string path)
+        private static T LoadComponent<T>(string prefabPath) where T : Component
         {
-            var sprite = AssetDatabase.LoadAssetAtPath<Sprite>(path);
-            if (sprite == null)
+            var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(prefabPath);
+            if (prefab == null)
             {
-                Debug.LogError($"[ProjectBootstrap] Missing sprite: {path}");
+                Debug.LogError($"[ProjectBootstrap] Missing prefab: {prefabPath}");
+                return null;
             }
 
-            return sprite;
+            var component = prefab.GetComponent<T>();
+            if (component == null)
+            {
+                Debug.LogError($"[ProjectBootstrap] {prefabPath} has no {typeof(T).Name}.");
+            }
+
+            return component;
+        }
+
+        /// <summary>
+        /// Finds the reference sub-asset the input importer generates for a named action.
+        ///
+        /// Assigning the reference rather than the asset is what lets the component name the one
+        /// action it needs, instead of taking the whole asset and looking the action up by string at
+        /// runtime where a rename would fail silently.
+        /// </summary>
+        private static InputActionReference LoadInputAction(string actionName)
+        {
+            foreach (var asset in AssetDatabase.LoadAllAssetsAtPath(InputActionsPath))
+            {
+                if (asset is InputActionReference reference &&
+                    reference.action != null &&
+                    reference.action.name == actionName)
+                {
+                    return reference;
+                }
+            }
+
+            Debug.LogError($"[ProjectBootstrap] {InputActionsPath} has no action named '{actionName}'.");
+            return null;
         }
 
         /// <summary>

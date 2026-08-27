@@ -15,10 +15,14 @@ namespace Blast.Items
 
         /// <summary>
         /// Immune to blasts however many cubes go off beside it; a single explosion clears it.
+        /// There is no middle state, so a blast is reported as ignored rather than as damage that
+        /// happened to leave it standing.
         /// </summary>
-        public override bool TryTakeDamage(DamageInfo damage)
+        public override DamageResult ApplyDamage(DamageInfo damage)
         {
-            return damage.Source == DamageSource.Explosion;
+            return damage.Source == DamageSource.Explosion
+                ? DamageResult.Destroyed
+                : DamageResult.Ignored;
         }
     }
 }

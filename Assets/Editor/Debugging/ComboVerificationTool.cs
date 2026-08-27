@@ -1,5 +1,4 @@
 using System.Collections.Generic;
-using System.Text;
 using Blast.Gameplay;
 using Blast.Items;
 using Blast.Levels;
@@ -38,6 +37,13 @@ namespace Blast.EditorTools
         [MenuItem("Dream Games/Debug/Verify Combos")]
         public static void Verify()
         {
+            RunChecks().Log();
+        }
+
+        public static VerificationReport RunChecks()
+        {
+            var report = new VerificationReport("Combo verification");
+
             // Level 1 is 10x7. The centre tap and the expected counts below are derived from those
             // dimensions, with the combo centred on the tapped cell.
             var tappedCell = new Vector2Int(4, 3);
@@ -68,15 +74,12 @@ namespace Blast.EditorTools
                 }
             };
 
-            var catalog = AssetDatabase.LoadAssetAtPath<ItemCatalog>(GameAssetsBootstrapTool.ItemCatalogPath);
+            var catalog = BoardScratchpad.LoadCatalog();
             if (catalog == null)
             {
-                Debug.LogError("[ComboVerification] Item catalog not found.");
-                return;
+                report.Check("Item catalog is available", false);
+                return report;
             }
-
-            var report = new StringBuilder();
-            var failures = 0;
 
             LevelPreviewTool.RunHeadless(context =>
             {
@@ -85,31 +88,19 @@ namespace Blast.EditorTools
                     // Reload so each case starts from a clean board, move count and coordinator.
                     context.Session.LoadLevel(1);
 
-                    if (!RunCase(context, catalog, comboCase, tappedCell, report))
-                    {
-                        failures++;
-                    }
+                    RunCase(context, catalog, comboCase, tappedCell, report);
                 }
             });
 
-            var summary = $"Combo verification: {cases.Length - failures}/{cases.Length} passed.\n{report}";
-
-            if (failures == 0)
-            {
-                Debug.Log(summary);
-            }
-            else
-            {
-                Debug.LogError(summary);
-            }
+            return report;
         }
 
-        private static bool RunCase(
+        private static void RunCase(
             LevelPreviewTool.Context context,
             ItemCatalog catalog,
             ComboCase comboCase,
             Vector2Int tappedCell,
-            StringBuilder report)
+            VerificationReport report)
         {
             var board = context.Board;
 
@@ -135,13 +126,11 @@ namespace Blast.EditorTools
                 }
             }
 
-            var passed = cleared == comboCase.ExpectedClearedStones;
-            report.AppendLine(
-                $"  {(passed ? "PASS" : "FAIL")} {comboCase.Name}: cleared {cleared} stones, " +
-                $"expected {comboCase.ExpectedClearedStones} " +
-                $"({comboCase.PatternCells} pattern cells minus {comboCase.MemberCodes.Length} members)");
-
-            return passed;
+            report.Check(
+                comboCase.Name,
+                cleared == comboCase.ExpectedClearedStones,
+                $"cleared {cleared} stones, expected {comboCase.ExpectedClearedStones} — " +
+                $"{comboCase.PatternCells} pattern cells minus {comboCase.MemberCodes.Length} members");
         }
 
         /// <summary>

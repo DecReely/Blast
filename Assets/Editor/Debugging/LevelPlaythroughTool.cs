@@ -1,5 +1,4 @@
 using System.Collections.Generic;
-using System.Text;
 using Blast.Gameplay;
 using UnityEditor;
 using UnityEngine;
@@ -31,7 +30,12 @@ namespace Blast.EditorTools
         [MenuItem("Dream Games/Debug/Play All Levels")]
         public static void PlayAll()
         {
-            var report = new StringBuilder();
+            RunChecks().Log();
+        }
+
+        public static VerificationReport RunChecks()
+        {
+            var report = new VerificationReport("Level playthrough");
             var levelsEverWon = 0;
             var totalWins = 0;
             var totalAttempts = 0;
@@ -56,8 +60,8 @@ namespace Blast.EditorTools
                         if (!result.Finished)
                         {
                             stuck++;
-                            report.AppendLine(
-                                $"    level {levelNumber} attempt {attempt}: ended still in progress");
+                            report.Note(
+                                $"  level {levelNumber} attempt {attempt}: ended still in progress");
                         }
 
                         if (result.Won)
@@ -78,29 +82,24 @@ namespace Blast.EditorTools
                         levelsEverWon++;
                     }
 
-                    report.AppendLine(
-                        $"  level {levelNumber:00}: won {wins}/{AttemptsPerLevel}" +
+                    report.Note(
+                        $"level {levelNumber:00}: won {wins}/{AttemptsPerLevel}" +
                         (wins > 0
                             ? $", best finish with {bestMovesLeft} move(s) to spare"
                             : $", closest attempt left {closest} obstacle(s)"));
                 }
             });
 
-            var summary =
-                $"Level playthrough: {levelsEverWon}/{LevelCount} levels completed by the bot, " +
-                $"{totalWins}/{totalAttempts} attempts won.\n{report}";
-
             // A level the bot cannot finish is a difficulty observation, not a defect — it plays
             // greedily and never looks ahead. A level that ends with no outcome at all is a defect,
             // because it means the player would be left with a board that can neither be won nor lost.
-            if (stuck == 0)
-            {
-                Debug.Log(summary);
-            }
-            else
-            {
-                Debug.LogError($"{summary}\n{stuck} attempt(s) ended without an outcome.");
-            }
+            report.Check(
+                "Every attempt reaches a definite outcome",
+                stuck == 0,
+                $"{levelsEverWon}/{LevelCount} levels completed by the bot, " +
+                $"{totalWins}/{totalAttempts} attempts won, {stuck} without an outcome");
+
+            return report;
         }
 
         private readonly struct Result

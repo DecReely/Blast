@@ -100,8 +100,8 @@ SpriteRenderer:
   m_Color: {r: 1, g: 1, b: 1, a: 1}
   m_FlipX: 0
   m_FlipY: 0
-  m_DrawMode: 0
-  m_Size: {x: 0.94666666, y: 0.94666666}
+  m_DrawMode: 1
+  m_Size: {x: 1, y: 1}
   m_AdaptiveModeThreshold: 0.5
   m_SpriteTileMode: 0
   m_WasSpriteAssigned: 1
@@ -117,6 +117,7 @@ MonoBehaviour:
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 05a84ee2371aae34988de6ce553b4868, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::Blast.Items.Tnt
+  m_EditorClassIdentifier: Blast.Runtime::Blast.Items.Tnt
   _clearEffectPrefab: {fileID: 108696793865455398, guid: e36867363989bdf40b5a34ff154477a6, type: 3}
+  _damageEffectPrefab: {fileID: 0}
   _blastRadius: 2

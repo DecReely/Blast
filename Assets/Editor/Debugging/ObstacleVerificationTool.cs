@@ -1,4 +1,3 @@
-using System.Text;
 using Blast.Gameplay;
 using Blast.Items;
 using Blast.Levels;
@@ -21,71 +20,88 @@ namespace Blast.EditorTools
         [MenuItem("Dream Games/Debug/Verify Obstacles")]
         public static void Verify()
         {
+            RunChecks().Log();
+        }
+
+        public static VerificationReport RunChecks()
+        {
+            var report = new VerificationReport("Obstacle verification");
+
+            report.Absorb(CheckVaseRules());
+            report.Absorb(CheckStoneRules());
+            report.Absorb(CheckWinCondition());
+
+            return report;
+        }
+
+        /// <summary>
+        /// A vase survives its first hit and is cleared by the second, and a blast is worth exactly
+        /// one hit however many cubes went off beside it.
+        /// </summary>
+        public static VerificationReport CheckVaseRules()
+        {
+            var report = new VerificationReport("Vase damage rules");
+
             var catalog = BoardScratchpad.LoadCatalog();
             if (catalog == null)
             {
-                return;
+                report.Check("Item catalog is available", false);
+                return report;
             }
-
-            var report = new StringBuilder();
-            var failures = 0;
-
-            failures += CheckVase(catalog, report);
-            failures += CheckStone(catalog, report);
-            failures += CheckWinCondition(catalog, report);
-
-            var summary = $"Obstacle verification:\n{report}";
-
-            if (failures == 0)
-            {
-                Debug.Log(summary);
-            }
-            else
-            {
-                Debug.LogError($"{summary}\n{failures} failure(s).");
-            }
-        }
-
-        private static int CheckVase(ItemCatalog catalog, StringBuilder report)
-        {
-            var failures = 0;
 
             var vase = Spawn<Vase>(catalog, "v");
-            failures += Expect(report, "Vase survives one explosion hit",
-                actual: vase.TryTakeDamage(DamageInfo.FromExplosion()), expected: false);
-            failures += Expect(report, "Vase is cleared by the second hit",
-                actual: vase.TryTakeDamage(DamageInfo.FromExplosion()), expected: true);
+            report.Expect("Vase is only cracked by one explosion hit",
+                vase.ApplyDamage(DamageInfo.FromExplosion()), DamageResult.Damaged);
+            report.Expect("Vase is cleared by the second hit",
+                vase.ApplyDamage(DamageInfo.FromExplosion()), DamageResult.Destroyed);
             Object.DestroyImmediate(vase.gameObject);
 
             // "It takes no more than one damage from a single blast", however many cubes touched it.
             vase = Spawn<Vase>(catalog, "v");
-            failures += Expect(report, "Vase takes only one damage from a blast of 8 adjacent cubes",
-                actual: vase.TryTakeDamage(DamageInfo.FromBlast(8)), expected: false);
+            report.Expect("Vase takes only one damage from a blast of 8 adjacent cubes",
+                vase.ApplyDamage(DamageInfo.FromBlast(8)), DamageResult.Damaged);
             Object.DestroyImmediate(vase.gameObject);
 
-            return failures;
+            return report;
         }
 
-        private static int CheckStone(ItemCatalog catalog, StringBuilder report)
+        /// <summary>Stone ignores blasts entirely and is cleared by any single explosion.</summary>
+        public static VerificationReport CheckStoneRules()
         {
-            var failures = 0;
+            var report = new VerificationReport("Stone damage rules");
+
+            var catalog = BoardScratchpad.LoadCatalog();
+            if (catalog == null)
+            {
+                report.Check("Item catalog is available", false);
+                return report;
+            }
 
             var stone = Spawn<Stone>(catalog, BoardScratchpad.StoneCode);
-            failures += Expect(report, "Stone ignores an adjacent blast",
-                actual: stone.TryTakeDamage(DamageInfo.FromBlast(8)), expected: false);
-            failures += Expect(report, "Stone is cleared by one explosion",
-                actual: stone.TryTakeDamage(DamageInfo.FromExplosion()), expected: true);
+            report.Expect("Stone ignores an adjacent blast",
+                stone.ApplyDamage(DamageInfo.FromBlast(8)), DamageResult.Ignored);
+            report.Expect("Stone is cleared by one explosion",
+                stone.ApplyDamage(DamageInfo.FromExplosion()), DamageResult.Destroyed);
             Object.DestroyImmediate(stone.gameObject);
 
-            return failures;
+            return report;
         }
 
         /// <summary>
         /// Clearing the last obstacle must win the level. A stone is used because a single explosion
         /// clears it, keeping the setup to one TNT and one obstacle.
         /// </summary>
-        private static int CheckWinCondition(ItemCatalog catalog, StringBuilder report)
+        public static VerificationReport CheckWinCondition()
         {
+            var report = new VerificationReport("Win condition");
+
+            var catalog = BoardScratchpad.LoadCatalog();
+            if (catalog == null)
+            {
+                report.Check("Item catalog is available", false);
+                return report;
+            }
+
             var outcome = LevelOutcome.InProgress;
             var stonesLeft = -1;
 
@@ -108,24 +124,17 @@ namespace Blast.EditorTools
                 stonesLeft = context.Session.Goals.StonesRemaining;
             });
 
-            var passed = outcome == LevelOutcome.Won && stonesLeft == 0;
-            report.AppendLine(
-                $"  {(passed ? "PASS" : "FAIL")} Clearing the last obstacle wins the level " +
-                $"(outcome {outcome}, stones left {stonesLeft})");
+            report.Check(
+                "Clearing the last obstacle wins the level",
+                outcome == LevelOutcome.Won && stonesLeft == 0,
+                $"outcome {outcome}, stones left {stonesLeft}");
 
-            return passed ? 0 : 1;
+            return report;
         }
 
         private static T Spawn<T>(ItemCatalog catalog, string code) where T : GridItem
         {
             return Object.Instantiate((T)catalog.GetPrefab(code));
-        }
-
-        private static int Expect(StringBuilder report, string name, bool actual, bool expected)
-        {
-            var passed = actual == expected;
-            report.AppendLine($"  {(passed ? "PASS" : "FAIL")} {name} (cleared: {actual}, expected {expected})");
-            return passed ? 0 : 1;
         }
     }
 }

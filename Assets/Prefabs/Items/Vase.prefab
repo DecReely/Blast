@@ -117,8 +117,9 @@ MonoBehaviour:
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 1c2bad4b7dca2b44480aa0769c4d88b4, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::Blast.Items.Vase
+  m_EditorClassIdentifier: Blast.Runtime::Blast.Items.Vase
   _clearEffectPrefab: {fileID: 5066622249836294107, guid: 59eff91a8cd30764b8fd3358264b12a1, type: 3}
+  _damageEffectPrefab: {fileID: 8105310089316865804, guid: d76865b62239dce47bb1a64349449617, type: 3}
   _spriteRenderer: {fileID: 4463523048241038588}
   _maxHitPoints: 2
   _healthStateSprites:

@@ -4,32 +4,38 @@ using UnityEngine;
 namespace Blast.Gameplay
 {
     /// <summary>
-    /// Spawns the short-lived visuals an explosion needs, currently the two halves a rocket splits
-    /// into.
+    /// Owns the presentation a special item needs but cannot supply itself.
     ///
-    /// The half sprites live here rather than on the <see cref="Rocket"/> prefab because combos fire
-    /// rockets that were never items on the board — the TNT-Rocket combo launches six of them — and
-    /// they need the same artwork. Keeping one owner avoids the two paths drifting apart.
+    /// Everything here belongs to a moment rather than to an instance: a combo fires rockets that
+    /// were never items on the board — the TNT-Rocket combo launches six of them — and both the
+    /// combo blast and the puff a newly created special arrives in happen when no item exists to
+    /// carry the prefab. Keeping one owner stops the item and combo paths drifting apart.
     ///
-    /// A rocket half is not a board item either: it occupies no cell and cannot be tapped.
+    /// The half's own artwork is deliberately not here: it lives on the half prefab, so a rocket
+    /// half is a single asset that fully describes how it looks.
     /// </summary>
     public sealed class SpecialItemVisuals : MonoBehaviour
     {
-        [Tooltip("Sprite-only prefab used for each half of a splitting rocket.")]
-        [SerializeField] private SpriteRenderer _rocketHalfPrefab;
+        [Tooltip("Prefab spawned for each half of a splitting rocket. It supplies its own artwork.")]
+        [SerializeField] private RocketHalfView _rocketHalfPrefab;
 
-        [Header("Rocket halves")]
-        [SerializeField] private Sprite _horizontalLeft;
-        [SerializeField] private Sprite _horizontalRight;
-        [SerializeField] private Sprite _verticalDown;
-        [SerializeField] private Sprite _verticalUp;
+        [Header("One-shot effects")]
+        [Tooltip("Played at the centre of a combo, whose members are consumed without exploding.")]
+        [SerializeField] private ParticleSystem _comboEffectPrefab;
+
+        [Tooltip("Played where a blast collapses into a new special item.")]
+        [SerializeField] private ParticleSystem _specialCreatedEffectPrefab;
+
+        public ParticleSystem ComboEffectPrefab => _comboEffectPrefab;
+
+        public ParticleSystem SpecialCreatedEffectPrefab => _specialCreatedEffectPrefab;
 
         /// <summary>
         /// Creates the half travelling in the given direction at a world position. Returns null if no
         /// prefab is configured, which callers treat as "run the sweep without a visual".
         /// </summary>
         /// <param name="positive">True for the half heading right or up.</param>
-        public Transform SpawnRocketHalf(Rocket.Axis axis, bool positive, Vector3 position)
+        public RocketHalfView SpawnRocketHalf(Rocket.Axis axis, bool positive, Vector3 position)
         {
             if (_rocketHalfPrefab == null)
             {
@@ -37,18 +43,8 @@ namespace Blast.Gameplay
             }
 
             var instance = Instantiate(_rocketHalfPrefab, position, Quaternion.identity, transform);
-            instance.sprite = SpriteFor(axis, positive);
-            return instance.transform;
-        }
-
-        private Sprite SpriteFor(Rocket.Axis axis, bool positive)
-        {
-            if (axis == Rocket.Axis.Horizontal)
-            {
-                return positive ? _horizontalRight : _horizontalLeft;
-            }
-
-            return positive ? _verticalUp : _verticalDown;
+            instance.Show(axis, positive);
+            return instance;
         }
     }
 }

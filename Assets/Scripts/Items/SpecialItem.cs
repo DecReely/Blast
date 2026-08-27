@@ -1,4 +1,5 @@
 using Blast.Gameplay;
+using UnityEngine;
 
 namespace Blast.Items
 {
@@ -27,12 +28,18 @@ namespace Blast.Items
         /// <summary>
         /// Never reached in practice: the explosion system detects a special in a damaged cell and
         /// detonates it instead of damaging it, which is how a chain reaction propagates. Reported
-        /// as "not destroyed" so that a caller which bypassed that path cannot silently delete a
-        /// special without triggering it.
+        /// as ignored so that a caller which bypassed that path cannot silently delete a special
+        /// without triggering it, and warned about because reaching here means the chain would not
+        /// have propagated.
         /// </summary>
-        public override bool TryTakeDamage(DamageInfo damage)
+        public override DamageResult ApplyDamage(DamageInfo damage)
         {
-            return false;
+            Debug.LogWarning(
+                $"[{name}] A special item was damaged directly instead of being detonated. " +
+                "Route damage through ExplosionSystem so the chain reaction propagates.",
+                this);
+
+            return DamageResult.Ignored;
         }
     }
 }

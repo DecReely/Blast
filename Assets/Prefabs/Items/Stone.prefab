@@ -117,5 +117,6 @@ MonoBehaviour:
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 14c42e28ebdc4f144ba26045d5d7e1ee, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::Blast.Items.Stone
+  m_EditorClassIdentifier: Blast.Runtime::Blast.Items.Stone
   _clearEffectPrefab: {fileID: 5296207311283988105, guid: cdec3d13f6d5970469a430f85e65de2a, type: 3}
+  _damageEffectPrefab: {fileID: 0}

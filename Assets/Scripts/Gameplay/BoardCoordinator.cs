@@ -33,6 +33,7 @@ namespace Blast.Gameplay
         private readonly SpecialItemFactory _specialFactory;
         private readonly FallAnimator _fallAnimator;
         private readonly MergeAnimator _mergeAnimator;
+        private readonly SpecialItemVisuals _visuals;
 
         private readonly List<Vector2Int> _group = new();
         private readonly List<SpecialItem> _specialGroup = new();
@@ -54,7 +55,8 @@ namespace Blast.Gameplay
             BoardActionRunner actionRunner,
             SpecialItemFactory specialFactory,
             FallAnimator fallAnimator,
-            MergeAnimator mergeAnimator)
+            MergeAnimator mergeAnimator,
+            SpecialItemVisuals visuals)
         {
             _board = board;
             _groupFinder = groupFinder;
@@ -68,6 +70,7 @@ namespace Blast.Gameplay
             _specialFactory = specialFactory;
             _fallAnimator = fallAnimator;
             _mergeAnimator = mergeAnimator;
+            _visuals = visuals;
         }
 
         /// <summary>
@@ -143,10 +146,16 @@ namespace Blast.Gameplay
         {
             DetachGroupVisuals();
 
-            _mergeAnimator.Play(_mergingVisuals, _board.CellToWorld(tappedCell), () =>
+            var world = _board.CellToWorld(tappedCell);
+
+            _mergeAnimator.Play(_mergingVisuals, world, () =>
             {
                 DestroyMergingVisuals();
                 _specialFactory.Create(groupSize, _board, tappedCell);
+
+                // Punctuates the moment the arriving cubes turn into the special, which otherwise
+                // simply appears.
+                PlayEffect(_visuals != null ? _visuals.SpecialCreatedEffectPrefab : null, world);
 
                 Settle();
             });
@@ -195,9 +204,15 @@ namespace Blast.Gameplay
                 _mergingVisuals.Add(member.transform);
             }
 
-            _mergeAnimator.Play(_mergingVisuals, _board.CellToWorld(tappedCell), () =>
+            var world = _board.CellToWorld(tappedCell);
+
+            _mergeAnimator.Play(_mergingVisuals, world, () =>
             {
                 DestroyMergingVisuals();
+
+                // The members were consumed silently so their individual explosions could be
+                // discarded, which leaves the combo itself with nothing to show at its centre.
+                PlayEffect(_visuals != null ? _visuals.ComboEffectPrefab : null, world);
 
                 pattern.Detonate(tappedCell, _explosionSystem);
                 _actionRunner.NotifyWhenIdle(Settle);
@@ -244,9 +259,19 @@ namespace Blast.Gameplay
 
             foreach (var (item, adjacentCubes) in _blastNeighbours)
             {
-                if (item.TryTakeDamage(DamageInfo.FromBlast(adjacentCubes)))
+                switch (item.ApplyDamage(DamageInfo.FromBlast(adjacentCubes)))
                 {
-                    RemoveAndDestroy(item);
+                    // Stone ignores blasts, so it must not react to one.
+                    case DamageResult.Ignored:
+                        break;
+
+                    case DamageResult.Damaged:
+                        PlayEffect(item.DamageEffectPrefab, item.transform.position);
+                        break;
+
+                    case DamageResult.Destroyed:
+                        RemoveAndDestroy(item);
+                        break;
                 }
             }
         }
@@ -303,8 +328,17 @@ namespace Blast.Gameplay
             // Detach from the model before destroying the view, so the board never holds a reference
             // to something on its way out.
             _board.Remove(item);
-            _effectPool.Play(item.ClearEffectPrefab, item.transform.position);
+            PlayEffect(item.ClearEffectPrefab, item.transform.position);
             ObjectLifetime.Destroy(item.gameObject);
+        }
+
+        /// <summary>Pooled one-shot playback. A null prefab simply means "nothing to show".</summary>
+        private void PlayEffect(ParticleSystem prefab, Vector3 position)
+        {
+            if (_effectPool != null)
+            {
+                _effectPool.Play(prefab, position);
+            }
         }
 
         /// <summary>

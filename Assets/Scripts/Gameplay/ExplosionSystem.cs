@@ -126,14 +126,23 @@ namespace Blast.Gameplay
                 return;
             }
 
-            if (!item.TryTakeDamage(damage))
+            switch (item.ApplyDamage(damage))
             {
-                return;
-            }
+                // Something that shrugged the hit off must not flash, or stone would appear to be
+                // taking damage from blasts it is immune to.
+                case DamageResult.Ignored:
+                    break;
 
-            _board.Remove(item);
-            _effectPool.Play(item.ClearEffectPrefab, item.transform.position);
-            ObjectLifetime.Destroy(item.gameObject);
+                case DamageResult.Damaged:
+                    _effectPool.Play(item.DamageEffectPrefab, item.transform.position);
+                    break;
+
+                case DamageResult.Destroyed:
+                    _board.Remove(item);
+                    _effectPool.Play(item.ClearEffectPrefab, item.transform.position);
+                    ObjectLifetime.Destroy(item.gameObject);
+                    break;
+            }
         }
     }
 }

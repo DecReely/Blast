@@ -14,7 +14,7 @@ namespace Blast.Gameplay
     {
         private readonly Board _board;
         private readonly ExplosionSystem _explosions;
-        private readonly Transform _visual;
+        private readonly RocketHalfView _half;
         private readonly Vector2Int _step;
         private readonly float _cellsPerSecond;
         private readonly DamageInfo _damage;
@@ -44,7 +44,7 @@ namespace Blast.Gameplay
             var forward = axis == Rocket.Axis.Horizontal ? Vector2Int.right : Vector2Int.up;
             _step = positive ? forward : -forward;
 
-            _visual = visuals != null
+            _half = visuals != null
                 ? visuals.SpawnRocketHalf(axis, positive, board.CellToWorld(origin))
                 : null;
         }
@@ -69,10 +69,10 @@ namespace Blast.Gameplay
                 _explosions.DamageCell(_cell, _damage);
             }
 
-            if (_visual != null)
+            if (_half != null)
             {
                 var offset = (Vector3)(Vector2)_step * _progressIntoNextCell;
-                _visual.position = _board.CellToWorld(_cell) + offset;
+                _half.transform.position = _board.CellToWorld(_cell) + offset;
             }
 
             return true;
@@ -80,10 +80,14 @@ namespace Blast.Gameplay
 
         private void Finish()
         {
-            if (_visual != null)
+            if (_half == null)
             {
-                ObjectLifetime.Destroy(_visual.gameObject);
+                return;
             }
+
+            // The trail is left behind to burn out; only the rocket itself goes now.
+            _half.Release();
+            ObjectLifetime.Destroy(_half.gameObject);
         }
     }
 }

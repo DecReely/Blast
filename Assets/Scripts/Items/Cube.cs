@@ -34,9 +34,9 @@ namespace Blast.Items
         public override bool CanFall => true;
 
         /// <summary>Cubes have no health: anything that reaches them clears them.</summary>
-        public override bool TryTakeDamage(DamageInfo damage)
+        public override DamageResult ApplyDamage(DamageInfo damage)
         {
-            return true;
+            return DamageResult.Destroyed;
         }
 
         /// <summary>
