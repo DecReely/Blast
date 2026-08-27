@@ -28,9 +28,11 @@ namespace Blast.Gameplay
         /// <summary>Raised with the new remaining count whenever a move is spent.</summary>
         public event Action<int> RemainingChanged;
 
-        /// <summary>Raised once when the last move is used up.</summary>
-        public event Action Exhausted;
-
+        /// <summary>
+        /// Running out of moves deliberately raises nothing. Whether that ends the level depends on
+        /// the board, which is not settled yet at this point — a rocket still in flight can clear the
+        /// last goal and turn the final move into a win. The session decides once the board settles.
+        /// </summary>
         public void Spend()
         {
             if (Remaining == 0)
@@ -40,11 +42,6 @@ namespace Blast.Gameplay
 
             Remaining--;
             RemainingChanged?.Invoke(Remaining);
-
-            if (Remaining == 0)
-            {
-                Exhausted?.Invoke();
-            }
         }
     }
 }

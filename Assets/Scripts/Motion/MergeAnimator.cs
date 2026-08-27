@@ -28,11 +28,12 @@ namespace Blast.Motion
         [Tooltip("Scale the visuals shrink to as they arrive.")]
         [SerializeField] private float _endScale = 0.3f;
 
-        [Tooltip("Eased so the visuals accelerate inwards rather than drifting at a constant speed.")]
+        [Tooltip("Eased so the visuals accelerate inwards and arrive fast, rather than easing to a " +
+                 "halt. The steep outgoing tangent is what makes the special appear on an impact.")]
         [SerializeField]
         private AnimationCurve _ease = new(
-            new Keyframe(0f, 0f),
-            new Keyframe(1f, 1f));
+            new Keyframe(0f, 0f, 0f, 0f),
+            new Keyframe(1f, 1f, 2f, 2f));
 
         private readonly List<Mover> _movers = new();
         private Vector3 _target;
