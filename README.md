@@ -93,12 +93,36 @@ cell/world conversion, so nothing else does cell-size arithmetic. Input picking 
 `Grid.WorldToCell` plus a lookup rather than colliders or raycasts — the board is a regular grid, so
 there is nothing for a physics query to add.
 
-**Items decide how they react to damage.** `GridItem.TryTakeDamage(DamageInfo)` is abstract rather
+**Items decide how they react to damage.** `GridItem.ApplyDamage(DamageInfo)` is abstract rather
 than virtual, so a new item type cannot silently inherit "immune". `DamageInfo` carries how the
 damage arrived and a source identity, and each item interprets it: stone ignores blasts, a vase
 takes at most one damage per blast, and a chalice box counts sources during its door phase but cells
 during its chalice phase. A blast reports *how many* of its cubes touched each obstacle and lets the
 obstacle decide what that is worth.
+
+It answers with `Ignored`, `Damaged` or `Destroyed` rather than a bool, because "still standing" is
+two different things and they need different feedback: a vase that cracked has to show it, while
+stone shrugging off a blast it is immune to must not.
+
+**Presentation belongs to the thing it describes.** A rocket half is one prefab that carries all four
+direction sprites and its own exhaust, so the sweep only has to say which way it is going and an
+artist has one asset to open. `SpecialItemVisuals` keeps only what no item can hold — the combo
+blast and the puff a new special arrives in both happen at a moment when the items involved have
+already left the board. The chalice box works the same way: `ChaliceShelfView` is told how many
+chalices remain and works out the rest.
+
+**The shelves are computed, not authored.** A box can be left holding anything from ten down to one,
+so the count is split as evenly as the two shelves allow with the remainder underneath (5-5, then
+4-5, then 4-4), spread across the shelf width by equal shares, and eased larger and further forward
+towards the middle of each row so a shelf reads with depth. Eleven authored layouts would have been
+eleven things to keep in step.
+
+**Input is data.** `BoardInput` takes two `InputActionReference`s out of
+`Assets/Input/InputSystem_Actions.inputactions`, so which devices count as a tap is authored in the
+input asset rather than compiled in. It still polls in `Update` rather than subscribing, because
+Unity does not support `EventSystem.IsPointerOverGameObject` from inside an input callback — UI
+state has not settled at that point — and that check is what stops a tap on the fail popup reaching
+the board.
 
 **Five explosion shapes, three classes.** A lone TNT and the TNT-TNT combo are `AreaPattern` with
 radius 2 and 3; the Rocket-Rocket and TNT-Rocket combos are `CrossRocketPattern` with thickness 1
@@ -125,6 +149,12 @@ exactly one world unit and removes the need for per-prefab offsets anywhere, inc
 Sorting order increases with row, so the shadowed bottom edge of an upper item overlaps the
 highlight of the one below and produces the separation line seen in the reference.
 
+Special items are the one exception. Their art is smaller than a cell — a rocket is 140x140, a TNT
+142x142 — so they would sit visibly undersized next to a cube. Their renderers are given sliced draw
+mode and an explicit one-unit size, which fits the sprite to the cell without touching the
+transform, so every prefab stays at scale one and both fields remain editable in the inspector.
+Cubes deliberately keep their 140x160 overhang, since that is what draws the shadow line above.
+
 **Everything generatable is generated.** Import settings, item and effect prefabs, the item catalog,
 the level database, both scenes and both interfaces are built by editor tools rather than clicked
 together, so the project can be rebuilt from source and the setup is reviewable as code. Those tools
@@ -148,9 +178,11 @@ Everything lives under the **Dream Games** menu.
 clobbered. It applies import settings first, because a scene built against stale 9-slice borders
 looks subtly wrong in ways that are hard to spot.
 
-**Debug** contains the verification suites. They run outside play mode: the gameplay systems expose a
-`Tick(delta)` that `SceneTicker` drives at a fixed 1/60 step, which is what makes a whole turn — merge,
-explosion, fall, refill — reproducible in a batch-mode editor run.
+**Debug** contains the verification suites and the offscreen capture tools. The suites are the same
+code the tests run — see [Tests](#tests) — exposed here as menu items that log the full report rather
+than just passing or failing. They work outside play mode because the gameplay systems expose a
+`Tick(delta)` that `SceneTicker` drives at a fixed 1/60 step, which is what makes a whole turn —
+merge, explosion, fall, refill — reproducible in a batch-mode editor run.
 
 | Menu item | What it checks |
 | --- | --- |
@@ -161,6 +193,7 @@ explosion, fall, refill — reproducible in a batch-mode editor run.
 | Verify Edge Cases | Input gating, taps that are not moves, the win/lose boundary on the final move, multi-box goals, and that a settled board always offers a legal tap |
 | Play All Levels | Plays every level to an outcome with a heuristic bot |
 | Capture Level Previews / Turn Simulation | Renders levels and a full turn to PNG |
+| Capture Chalice Box States | Renders a box at every count it can hold, closed and 10 down to 0 |
 | Capture UI Previews | Renders both interfaces to PNG |
 
 The board invariant in the stress test is written independently of `GravitySystem` rather than
