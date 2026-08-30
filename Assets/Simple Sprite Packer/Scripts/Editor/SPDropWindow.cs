@@ -22,7 +22,9 @@ namespace SimpleSpritePackerEditor
 			
 			if (EditorPrefs.HasKey(SPTools.Settings_SavedInstanceIDKey))
 			{
-				string instancePath = AssetDatabase.GetAssetPath(EditorPrefs.GetInt(SPTools.Settings_SavedInstanceIDKey, 0));
+				// EntityId rather than the raw int: the int overload of GetAssetPath is obsolete.
+				EntityId savedInstance = EditorPrefs.GetInt(SPTools.Settings_SavedInstanceIDKey, 0);
+				string instancePath = AssetDatabase.GetAssetPath(savedInstance);
 				
 				if (!string.IsNullOrEmpty(instancePath))
 				{

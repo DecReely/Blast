@@ -75,7 +75,7 @@ namespace SimpleSpritePackerEditor
 			if (texture == null)
 				return string.Empty;
 			
-			return AssetDatabase.GetAssetPath(texture.GetInstanceID());
+			return AssetDatabase.GetAssetPath(texture);
 		}
 		
 		/// <summary>

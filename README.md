@@ -81,7 +81,6 @@ Assets/
     Effects/         pooled particle playback
     UI/              menu, top bar, popup, celebration, flow control
   Editor/            Blast.Editor
-    Setup/           reproducible project, asset and scene generation
     Debugging/       offscreen preview and verification tooling
   Tests/Editor/      Blast.Tests.Editor
 ```
@@ -155,11 +154,12 @@ mode and an explicit one-unit size, which fits the sprite to the cell without to
 transform, so every prefab stays at scale one and both fields remain editable in the inspector.
 Cubes deliberately keep their 140x160 overhang, since that is what draws the shadow line above.
 
-**Everything generatable is generated.** Import settings, item and effect prefabs, the item catalog,
-the level database, both scenes and both interfaces are built by editor tools rather than clicked
-together, so the project can be rebuilt from source and the setup is reviewable as code. Those tools
-write private serialized fields through `SerializedObject`, so no runtime class exposes editor-only
-API.
+**The project was generated, then finished by hand.** Import settings, item and effect prefabs, the
+item catalog, the level database, both scenes and both interfaces were originally built by editor
+tools rather than clicked together, which is what kept the prefab set internally consistent and the
+sprite metrics honest while the game was taking shape. Those generators have since been removed:
+once the scenes and prefabs were being tuned by hand, a re-runnable "rebuild everything" was a
+liability rather than a safety net, and the assets themselves are the artefact worth shipping.
 
 ### Interpretations worth flagging
 
@@ -172,11 +172,6 @@ condition intact. This makes level 9 the hardest level in the set.
 ## Editor tooling
 
 Everything lives under the **Dream Games** menu.
-
-**Setup** regenerates the project. `Run Project Setup` is non-destructive and safe to re-run;
-`Rebuild Scenes` is explicitly destructive and kept separate so hand-made scene edits are never
-clobbered. It applies import settings first, because a scene built against stale 9-slice borders
-looks subtly wrong in ways that are hard to spot.
 
 **Debug** contains the verification suites and the offscreen capture tools. The suites are the same
 code the tests run — see [Tests](#tests) — exposed here as menu items that log the full report rather

@@ -21,7 +21,7 @@ namespace Blast.EditorTools
 
         public static ItemCatalog LoadCatalog()
         {
-            var catalog = AssetDatabase.LoadAssetAtPath<ItemCatalog>(GameAssetsBootstrapTool.ItemCatalogPath);
+            var catalog = AssetDatabase.LoadAssetAtPath<ItemCatalog>(ProjectPaths.ItemCatalogPath);
             if (catalog == null)
             {
                 Debug.LogError("[BoardScratchpad] Item catalog not found.");

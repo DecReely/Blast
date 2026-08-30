@@ -181,7 +181,7 @@ namespace Blast.EditorTools
 
         private static void Run(Action<Context> body, bool withRendering)
         {
-            EditorSceneManager.OpenScene(ProjectBootstrapTool.LevelScenePath, OpenSceneMode.Single);
+            EditorSceneManager.OpenScene(ProjectPaths.LevelScenePath, OpenSceneMode.Single);
 
             var session = UnityEngine.Object.FindFirstObjectByType<LevelSessionController>();
             var board = UnityEngine.Object.FindFirstObjectByType<Board>();

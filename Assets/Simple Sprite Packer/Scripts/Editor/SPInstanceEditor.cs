@@ -501,7 +501,7 @@ namespace SimpleSpritePackerEditor
 			
 			if (obj != null)
 			{
-				path = AssetDatabase.GetAssetPath(obj.GetInstanceID());
+				path = AssetDatabase.GetAssetPath(obj);
 				
 				if (path.Length > 0)
 				{

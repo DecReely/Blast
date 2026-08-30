@@ -38,7 +38,7 @@ namespace Blast.EditorTools
             var outputFolder = Path.Combine(Path.GetTempPath(), "blast_previews", "chalice_box");
             Directory.CreateDirectory(outputFolder);
 
-            EditorSceneManager.OpenScene(ProjectBootstrapTool.LevelScenePath, OpenSceneMode.Single);
+            EditorSceneManager.OpenScene(ProjectPaths.LevelScenePath, OpenSceneMode.Single);
 
             var session = Object.FindFirstObjectByType<LevelSessionController>();
             var board = Object.FindFirstObjectByType<Board>();

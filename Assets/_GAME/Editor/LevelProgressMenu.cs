@@ -30,7 +30,7 @@ namespace Blast.EditorTools
 
             _levelNumber = Mathf.Max(LevelProgress.FirstLevel, EditorGUILayout.IntField("Level", _levelNumber));
 
-            var database = AssetDatabase.LoadAssetAtPath<LevelDatabase>(GameAssetsBootstrapTool.LevelDatabasePath);
+            var database = AssetDatabase.LoadAssetAtPath<LevelDatabase>(ProjectPaths.LevelDatabasePath);
             if (database != null && _levelNumber > database.LevelCount)
             {
                 EditorGUILayout.HelpBox(

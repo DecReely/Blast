@@ -41,7 +41,7 @@ namespace Blast.EditorTools
 
         private static void CaptureMainMenu(string folder)
         {
-            EditorSceneManager.OpenScene(ProjectBootstrapTool.MainScenePath, OpenSceneMode.Single);
+            EditorSceneManager.OpenScene(ProjectPaths.MainScenePath, OpenSceneMode.Single);
 
             // OnEnable has not run outside play mode, so the label still shows its authored
             // placeholder until the controller is refreshed by hand.
@@ -53,7 +53,7 @@ namespace Blast.EditorTools
 
         private static void CaptureLevel(string folder)
         {
-            EditorSceneManager.OpenScene(ProjectBootstrapTool.LevelScenePath, OpenSceneMode.Single);
+            EditorSceneManager.OpenScene(ProjectPaths.LevelScenePath, OpenSceneMode.Single);
 
             var session = Object.FindFirstObjectByType<LevelSessionController>();
             var board = Object.FindFirstObjectByType<Board>();
