@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: dec0cbd899c8b5b4ca8f59e9ca0f2942
+MonoImporter:
+  serializedVersion: 2
+  defaultReferences: []
+  executionOrder: 0
+  icon: {instanceID: 0}
+  userData: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 23276
+  packageName: Simple Sprite Packer
+  packageVersion: 1.11
+  assetPath: Assets/Simple Sprite Packer/Scripts/Editor/SPDropWindow.cs
+  uploadId: 747184

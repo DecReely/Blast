@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: 57359e436a2768c498d5a65bb44f73e9
+MonoImporter:
+  serializedVersion: 2
+  defaultReferences: []
+  executionOrder: 0
+  icon: {instanceID: 0}
+  userData: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 23276
+  packageName: Simple Sprite Packer
+  packageVersion: 1.11
+  assetPath: Assets/Simple Sprite Packer/Scripts/SPSpriteInfo.cs
+  uploadId: 747184
