@@ -174,9 +174,9 @@ namespace Blast.EditorTools
             var root = new GameObject("RocketHalf");
             var renderer = root.AddComponent<SpriteRenderer>();
 
-            // Above every board row, and clipped to the board so it vanishes at the edge.
+            // Above every board row. Clipping to the board is applied when a half is spawned rather
+            // than baked in here; see NewItemRoot for why.
             renderer.sortingOrder = 50;
-            renderer.maskInteraction = SpriteMaskInteraction.VisibleInsideMask;
 
             // A half is the same size as the rocket it came from.
             renderer.sprite = LoadSprite($"{RocketFolder}/horizontal_rocket_part_right.png");
@@ -410,6 +410,12 @@ namespace Blast.EditorTools
         /// <summary>
         /// Every single-sprite item shares the same layout: a sorting group so multi-renderer items
         /// behave the same way, plus one sprite renderer.
+        ///
+        /// Deliberately left unmasked. Clipping to the board is applied by
+        /// <see cref="Blast.Gameplay.Board.Place"/> instead, because a masked renderer draws nothing
+        /// where no <see cref="SpriteMask"/> exists — including the scene Unity renders asset
+        /// thumbnails in, which is what previously left every generated prefab with a blank icon in
+        /// the project window, object pickers and prefab mode.
         /// </summary>
         private static GameObject NewItemRoot(string name, out SpriteRenderer spriteRenderer)
         {
@@ -417,9 +423,6 @@ namespace Blast.EditorTools
             root.AddComponent<SortingGroup>();
 
             spriteRenderer = root.AddComponent<SpriteRenderer>();
-
-            // Clipped to the board, so refilled cubes are hidden until they cross the top edge.
-            spriteRenderer.maskInteraction = SpriteMaskInteraction.VisibleInsideMask;
             return root;
         }
 
@@ -452,7 +455,6 @@ namespace Blast.EditorTools
 
             var renderer = child.AddComponent<SpriteRenderer>();
             renderer.sprite = LoadSprite(spritePath);
-            renderer.maskInteraction = SpriteMaskInteraction.VisibleInsideMask;
 
             // Ordering within the sorting group, not against the rest of the board.
             renderer.sortingOrder = order;

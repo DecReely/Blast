@@ -7,9 +7,9 @@ namespace Blast.Gameplay
     /// One half of a splitting rocket, as a self-contained visual.
     ///
     /// The four direction sprites live here, on the prefab, rather than on whatever spawns it. That
-    /// puts every piece of a rocket half's appearance — artwork, trail, sorting, masking — in one
-    /// asset an artist can open and change, and means the spawner needs to know nothing about it
-    /// beyond which way it is travelling.
+    /// puts every piece of a rocket half's appearance — artwork, trail, sorting — in one asset an
+    /// artist can open and change, and means the spawner needs to know nothing about it beyond which
+    /// way it is travelling.
     ///
     /// A half is not a board item: it occupies no cell, cannot be tapped and carries no damage rule.
     /// The sweep that owns it applies the damage; this only draws it.
@@ -43,6 +43,12 @@ namespace Blast.Gameplay
             }
 
             _spriteRenderer.sprite = SpriteFor(axis, positive);
+
+            // Clipped to the board so the half vanishes at the edge rather than flying off it. Set
+            // here rather than on the prefab for the same reason board items are: a masked renderer
+            // draws nothing without a SpriteMask present, which would leave the prefab with a blank
+            // asset preview. See GridItem.ClipToBoard.
+            _spriteRenderer.maskInteraction = SpriteMaskInteraction.VisibleInsideMask;
         }
 
         /// <summary>

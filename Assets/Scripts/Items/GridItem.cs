@@ -76,6 +76,27 @@ namespace Blast.Items
         }
 
         /// <summary>
+        /// Clips every sprite this item draws to the board's mask, so refilled cubes stay hidden
+        /// until they cross the top edge and nothing spills past the playfield.
+        ///
+        /// Applied by the board when it takes the item, rather than authored on the prefab. Clipping
+        /// is a consequence of being on a board, not a property of the item — and a renderer left
+        /// masked draws nothing wherever no <see cref="SpriteMask"/> exists, which is everywhere
+        /// except a live level. That includes the preview scene Unity renders asset thumbnails in,
+        /// so baking it in is what left every item prefab with a blank icon.
+        ///
+        /// Reaches children so multi-renderer items are covered as one. Renderers a view builds for
+        /// itself later set their own, since they do not exist yet at this point.
+        /// </summary>
+        internal void ClipToBoard()
+        {
+            foreach (var spriteRenderer in GetComponentsInChildren<SpriteRenderer>(includeInactive: true))
+            {
+                spriteRenderer.maskInteraction = SpriteMaskInteraction.VisibleInsideMask;
+            }
+        }
+
+        /// <summary>
         /// Sprites are ordered so that higher rows draw in front of lower ones.
         ///
         /// Board art is slightly taller than its cell (a cube is 140x160 px in a 150 px cell) and is

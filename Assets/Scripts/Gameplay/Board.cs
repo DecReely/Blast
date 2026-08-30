@@ -93,11 +93,16 @@ namespace Blast.Gameplay
         /// <summary>
         /// Puts an item on the board and snaps its transform to the cell. Used when building a level,
         /// where items simply appear in place.
+        ///
+        /// This is also where an item picks up the board's clipping: every path that spawns one —
+        /// level building, refill and special item creation — ends here, so it is the one place that
+        /// can say "you are on a board now" without the prefabs having to assume it.
         /// </summary>
         public void Place(GridItem item, Vector2Int origin)
         {
             Occupy(item, origin);
             SnapToCell(item);
+            item.ClipToBoard();
         }
 
         /// <summary>
