@@ -25,9 +25,6 @@ namespace Blast.Gameplay
 
         public bool IsEmpty => Item == null;
 
-        /// <summary>True when nothing can fall through this cell.</summary>
-        public bool BlocksFall => Item != null && !Item.CanFall;
-
         internal void SetItem(GridItem item)
         {
             Item = item;
