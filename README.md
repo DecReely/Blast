@@ -154,21 +154,6 @@ mode and an explicit one-unit size, which fits the sprite to the cell without to
 transform, so every prefab stays at scale one and both fields remain editable in the inspector.
 Cubes deliberately keep their 140x160 overhang, since that is what draws the shadow line above.
 
-**The project was generated, then finished by hand.** Import settings, item and effect prefabs, the
-item catalog, the level database, both scenes and both interfaces were originally built by editor
-tools rather than clicked together, which is what kept the prefab set internally consistent and the
-sprite metrics honest while the game was taking shape. Those generators have since been removed:
-once the scenes and prefabs were being tuned by hand, a re-runnable "rebuild everything" was a
-liability rather than a safety net, and the assets themselves are the artefact worth shipping.
-
-### Interpretations worth flagging
-
-The case study lists **"Goal: Collect 10 chalices"** under the Chalice Box section while also stating
-that users must **"clear all obstacles to win the level"**. Levels 3 and 9 contain four boxes and
-nothing else, so a flat ten would leave three of the four purely decorative. The goal is therefore
-ten chalices *per box*, which reads the "10" as describing one box and keeps the stated win
-condition intact. This makes level 9 the hardest level in the set.
-
 ## Editor tooling
 
 Everything lives under the **Dream Games** menu.
