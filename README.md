@@ -1,6 +1,6 @@
 # Blast
 
-A level-based blast puzzle game built for the Dream Games software engineering study.
+A level-based blast puzzle game.
 
 Tap a group of two or more adjacent same-coloured cubes to blast them. Larger groups collapse into
 special items, adjacent special items merge into combos, and the level is won by clearing every
@@ -15,8 +15,6 @@ aspect; the project's player settings are portrait-only at 1080x1920.
 
 `LevelScene` can also be played directly. It loads whichever level your saved progress points at,
 or you can force one with the **Level Number Override** field on the `LevelSession` object.
-
-Use **Dream Games ▸ Set Last Played Level…** to move progress around without replaying.
 
 ## How a turn works
 
@@ -55,10 +53,6 @@ group-size thresholds and the chalice shelf split — and runs in milliseconds. 
 is the integration layer: each test opens `LevelScene`, plants a board and plays real turns through
 the real coordinator. That works outside play mode because every time-based system exposes a
 `Tick(delta)` which `SceneTicker` drives at a fixed 1/60, making a whole turn reproducible.
-
-The suites are shared with the **Dream Games ▸ Debug** menu rather than duplicated: each returns a
-`VerificationReport` that the tests assert on and the menu items log, so a check cannot pass in one
-and fail in the other. `EveryLevelReachesAnOutcome` is `[Explicit]` because it plays fifty levels.
 
 ## Project layout
 
@@ -155,8 +149,6 @@ transform, so every prefab stays at scale one and both fields remain editable in
 Cubes deliberately keep their 140x160 overhang, since that is what draws the shadow line above.
 
 ## Editor tooling
-
-Everything lives under the **Dream Games** menu.
 
 **Debug** contains the verification suites and the offscreen capture tools. The suites are the same
 code the tests run — see [Tests](#tests) — exposed here as menu items that log the full report rather
